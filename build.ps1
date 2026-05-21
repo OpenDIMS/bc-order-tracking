@@ -35,10 +35,21 @@ if (-not (Test-Path $appJsonPath)) {
 }
 
 Write-Host "==> Ensuring BcContainerHelper is installed"
-if (-not (Get-Module -ListAvailable -Name BcContainerHelper)) {
-    Install-Module -Name BcContainerHelper -Force -AllowClobber -Scope CurrentUser -AcceptLicense
+# 6.1+ is the first version with the cross-platform Compile-AppInBcCompilerFolder cmdlet.
+# Older preinstalled versions (e.g. on GitHub's windows-latest runner) lack it, so enforce a floor.
+$requiredVersion = [Version]'6.1.14'
+$available = Get-Module -ListAvailable -Name BcContainerHelper |
+    Where-Object { $_.Version -ge $requiredVersion } |
+    Sort-Object Version -Descending | Select-Object -First 1
+if (-not $available) {
+    Write-Host "    No suitable version found — installing >= $requiredVersion"
+    Install-Module -Name BcContainerHelper -MinimumVersion $requiredVersion -Force -AllowClobber -Scope CurrentUser -AcceptLicense
 }
-Import-Module BcContainerHelper
+# Drop any older version that might already be loaded in this session, then load the suitable one.
+Remove-Module BcContainerHelper -Force -ErrorAction SilentlyContinue
+Import-Module BcContainerHelper -MinimumVersion $requiredVersion -Force
+$loaded = Get-Module BcContainerHelper
+Write-Host "    Using BcContainerHelper $($loaded.Version) from $($loaded.Path)"
 
 # Resolve BC version
 $appJson = Get-Content $appJsonPath -Raw | ConvertFrom-Json
