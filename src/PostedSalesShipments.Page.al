@@ -47,12 +47,6 @@ page 50101 "ODS Posted Sales Shipments"
                     ApplicationArea = All;
                     Editable = false;
                 }
-                field(customerId; Rec."Sell-to Customer Id")
-                {
-                    Caption = 'customerId', Locked = true;
-                    ApplicationArea = All;
-                    Editable = false;
-                }
                 field(customerNumber; Rec."Sell-to Customer No.")
                 {
                     Caption = 'customerNumber', Locked = true;
