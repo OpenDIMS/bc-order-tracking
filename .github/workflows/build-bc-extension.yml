@@ -1,0 +1,84 @@
+name: Build BC extension
+
+# Compiles the AL extension under bc-extension/ into a .app file and uploads it
+# as a workflow artifact (always) and as a GitHub release asset (when a release is created).
+#
+# Uses BcContainerHelper's compiler-folder pattern — no Docker, no Windows container,
+# just the bare compiler downloaded from Microsoft's BC artifacts CDN.
+#
+# This workflow coexists with the GitLab CI (bc-extension/.gitlab-ci.yml) and the
+# local Docker build (bc-extension/build-docker.sh). All three call the same build.ps1.
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'bc-extension/**'
+      - '.github/workflows/build-bc-extension.yml'
+  pull_request:
+    paths:
+      - 'bc-extension/**'
+      - '.github/workflows/build-bc-extension.yml'
+  workflow_dispatch:
+    inputs:
+      bcVersion:
+        description: 'BC platform version to compile against (e.g. 22.0). Leave empty to use the version from app.json.'
+        required: false
+        default: ''
+  release:
+    types: [created]
+
+jobs:
+  build:
+    name: Compile .app
+    # AL compiler runs on Linux too, but the Windows runner has a pre-warmed cache
+    # of .NET + PowerShell and consistently builds in 4-6 minutes cold, ~1 min warm.
+    runs-on: windows-latest
+
+    permissions:
+      contents: write  # needed by softprops/action-gh-release on release events
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache BcContainerHelper artifacts
+        uses: actions/cache@v4
+        with:
+          path: ~/.bcartifacts.cache
+          # Bump suffix when bumping major BC platform version in app.json.
+          key: bcartifacts-v22-${{ runner.os }}
+
+      - name: Run build.ps1
+        shell: pwsh
+        env:
+          BC_VERSION_OVERRIDE: ${{ inputs.bcVersion }}
+        run: |
+          $args = @('-NoProfile', '-File', 'bc-extension/build.ps1', '-OutputFolder', "$PWD/bc-extension-out")
+          if ($env:BC_VERSION_OVERRIDE) {
+              $args += @('-BcVersion', $env:BC_VERSION_OVERRIDE)
+          }
+          pwsh @args
+          if ($LASTEXITCODE -ne 0) { throw "build.ps1 failed with exit $LASTEXITCODE" }
+
+      - name: Read app.json version
+        id: appjson
+        shell: pwsh
+        run: |
+          $appJson = Get-Content bc-extension/app.json -Raw | ConvertFrom-Json
+          "appVersion=$($appJson.version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opendims-bc-extension-${{ steps.appjson.outputs.appVersion }}
+          path: bc-extension-out/opendims-bc-extension.app
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Attach to GitHub release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bc-extension-out/opendims-bc-extension.app
+          fail_on_unmatched_files: true
