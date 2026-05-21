@@ -62,12 +62,37 @@ New-Item -ItemType Directory -Force -Path $OutputFolder | Out-Null
 $symbolsFolder = Join-Path $projectFolder '.alpackages'
 New-Item -ItemType Directory -Force -Path $symbolsFolder | Out-Null
 
+# BcContainerHelper renamed the compile cmdlet at least once. Try the known names in order,
+# so the script keeps working across versions. Resolve BEFORE downloading platform artifacts
+# (which takes ~6 minutes) so we fail fast on a name mismatch.
+$compileCandidates = @(
+    'Compile-AppInBcCompilerFolder',
+    'Compile-AppWithBcCompilerFolder',
+    'Compile-AppInCompilerFolder',
+    'Compile-AppWithCompilerFolder'
+)
+$compileCmd = $null
+foreach ($name in $compileCandidates) {
+    if (Get-Command -Name $name -Module BcContainerHelper -ErrorAction SilentlyContinue) {
+        $compileCmd = $name
+        break
+    }
+}
+if (-not $compileCmd) {
+    Write-Host "==> Available compile/build cmdlets in BcContainerHelper $($loaded.Version):"
+    Get-Command -Module BcContainerHelper |
+        Where-Object { $_.Name -match '^(Compile|Build|Invoke|Run)-' } |
+        ForEach-Object { Write-Host "    - $($_.Name)" }
+    throw "No known compile cmdlet found in BcContainerHelper $($loaded.Version). See list above."
+}
+Write-Host "==> Using compile cmdlet: $compileCmd"
+
 $artifactUrl = Get-BCArtifactUrl -type Sandbox -country w1 -version $BcVersion -select Latest
 Write-Host "==> Using artifact URL: $artifactUrl"
 
 $compilerFolder = New-BcCompilerFolder -artifactUrl $artifactUrl
 try {
-    $appFile = Compile-AppInBcCompilerFolder `
+    $appFile = & $compileCmd `
         -compilerFolder $compilerFolder `
         -appProjectFolder $projectFolder `
         -appOutputFolder $OutputFolder `
