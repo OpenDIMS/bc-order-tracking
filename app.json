@@ -1,0 +1,27 @@
+{
+  "id": "7b3a8d20-2e8f-4d2e-9d2f-9a3c2e5d1f01",
+  "name": "OpenDIMS Integration",
+  "publisher": "OpenDIMS",
+  "version": "1.0.0.0",
+  "brief": "Exposes shipment tracking fields to OpenDIMS.",
+  "description": "Adds packageTrackingNumber, shipmentDate, shippingAgentCode and shippingAgentServiceCode to the standard salesOrders API and publishes a salesShipments API endpoint, so OpenDIMS can read shipment tracking and shipment status back from Business Central.",
+  "privacyStatement": "",
+  "EULA": "",
+  "help": "https://opendims.io/docs/business-central-guide.md",
+  "url": "https://opendims.io",
+  "logo": "",
+  "dependencies": [],
+  "screenshots": [],
+  "platform": "22.0.0.0",
+  "application": "22.0.0.0",
+  "idRanges": [
+    { "from": 50100, "to": 50149 }
+  ],
+  "resourceExposurePolicy": {
+    "allowDebugging": true,
+    "allowDownloadingSource": false,
+    "includeSourceInSymbolFile": false
+  },
+  "runtime": "11.0",
+  "features": ["NoImplicitWith"]
+}
