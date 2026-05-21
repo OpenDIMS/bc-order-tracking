@@ -23,8 +23,8 @@ Four options. All call the same `build.ps1`, so output is identical.
 `.github/workflows/build-bc-extension.yml` runs on `windows-latest`, caches BC artifacts between runs, and uploads `opendims-bc-extension.app` as a workflow artifact. On a published GitHub release, it also attaches the `.app` to the release assets.
 
 Triggers:
-- Push to `develop` / `main` touching `bc-extension/**`
-- Pull request touching `bc-extension/**`
+- Push to `develop` / `main`
+- Pull requests
 - Manual: **Actions → Build BC extension → Run workflow** (optional `bcVersion` input)
 - GitHub release created
 
@@ -32,9 +32,9 @@ Cold build ~5-7 min, warm ~1 min thanks to `actions/cache`.
 
 ### B. GitLab CI
 
-`bc-extension/.gitlab-ci.yml` defines two jobs:
+`.gitlab-ci.yml` defines two jobs:
 
-- `build_bc_extension` runs on every MR / push to `develop` that touches `bc-extension/**`. Produces `bc-extension-out/opendims-bc-extension.app` as a job artifact. Linux runner, no Docker-in-Docker, no Windows.
+- `build_bc_extension` runs on every MR / push to `develop` or `main`. Produces `out/opendims-bc-extension.app` as a job artifact. Linux runner, no Docker-in-Docker, no Windows.
 - `publish_bc_extension` runs on tags matching `bc-ext-*` and uploads the `.app` to the project's Generic Packages registry at
   `…/api/v4/projects/<id>/packages/generic/bc-extension/<tag>/opendims-bc-extension.app`.
 
@@ -49,20 +49,19 @@ git push origin bc-ext-v1.0.0.0
 Uses the same image as the GitLab job. No PowerShell install required on the host — just Docker.
 
 ```bash
-cd bc-extension
 ./build-docker.sh                 # uses BC version from app.json
 ./build-docker.sh 23.0            # override BC version
 BC_BUILD_CACHE_DIR=/tmp/bc-cache ./build-docker.sh   # custom cache location
 ```
 
-First run downloads + extracts ~600 MB of BC platform symbols into `~/.cache/opendims-bc-build/` — this takes **5–15 minutes** depending on disk speed (PowerShell's `Expand-Archive` is single-threaded). Subsequent runs reuse the cache and finish in ~30 seconds. Output: `bc-extension/out/opendims-bc-extension.app`, owned by your host user (no `sudo` cleanup needed).
+First run downloads + extracts ~600 MB of BC platform symbols into `~/.cache/opendims-bc-build/` — this takes **5–15 minutes** depending on disk speed (PowerShell's `Expand-Archive` is single-threaded). Subsequent runs reuse the cache and finish in ~30 seconds. Output: `out/opendims-bc-extension.app`, owned by your host user (no `sudo` cleanup needed).
 
 ### D. Local via `build.ps1` directly
 
 If you already have PowerShell 7 (`pwsh`) — on Fedora: `sudo dnf install powershell` from the Microsoft repo. Then:
 
 ```bash
-pwsh -File bc-extension/build.ps1
+pwsh -File ./build.ps1
 ```
 
 Same cache + timing characteristics as option C, just without the Docker wrapper.
@@ -71,7 +70,7 @@ Same cache + timing characteristics as option C, just without the Docker wrapper
 
 Microsoft's AL extension officially supports Windows and macOS, not Linux.
 
-1. Open `bc-extension/` in VS Code.
+1. Open this folder in VS Code.
 2. Ctrl/Cmd+Shift+P → `AL: Download symbols`.
 3. Ctrl/Cmd+Shift+B → builds `OpenDIMS_OpenDIMS Integration_1.0.0.0.app` next to `app.json`.
 
