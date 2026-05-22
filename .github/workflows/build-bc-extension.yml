@@ -77,13 +77,22 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: Zip .app for release upload
+        # GitHub Releases rejects bare .app files (the extension is reserved for macOS app
+        # bundles). Wrap it in a .zip; customers extract the .app from the archive after download.
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          Compress-Archive -Path out/opendims-bc-extension.app -DestinationPath out/opendims-bc-extension.zip -Force
+          Get-Item out/opendims-bc-extension.zip | Format-List FullName, Length
+
       - name: Create / attach to GitHub release
         # Fires on either: a tag push matching the triggers above, OR a release created in the UI.
         # softprops/action-gh-release creates the release when the tag has none yet, otherwise it
-        # attaches the .app to the existing release for that tag.
+        # attaches the .zip to the existing release for that tag.
         if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: out/opendims-bc-extension.app
+          files: out/opendims-bc-extension.zip
           fail_on_unmatched_files: true
           generate_release_notes: true

@@ -34,8 +34,9 @@ Triggers:
 
 - Push to `develop` / `main` — builds + uploads workflow artifact only.
 - Push of a tag matching `v*` or `bc-ext-v*` — builds, and **creates a GitHub release for that tag if missing, then
-  attaches the `.app`**.
-- A release created/published from the GitHub UI — same as above, attaches to the existing release.
+  attaches `opendims-bc-extension.zip`** (GitHub blocks bare `.app` uploads — the archive contains the single `.app`
+  file, just unzip after download).
+- A release created/published from the GitHub UI — same as above, attaches the zip to the existing release.
 - Pull requests — builds + uploads workflow artifact only.
 - Manual: **Actions → Build BC extension → Run workflow** (optional `bcVersion` input).
 
@@ -104,6 +105,9 @@ api/public/downloads/business-central/opendims-bc-extension.app
 ```
 
 The driver advertises the URL `<APP_URL>/downloads/business-central/opendims-bc-extension.app` in its settings help text.
+
+If you grabbed the file from a GitHub release, unzip `opendims-bc-extension.zip` first and copy the resulting `.app`
+file into the path above.
 
 ## How a customer installs it
 
