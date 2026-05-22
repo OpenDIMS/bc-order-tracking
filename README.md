@@ -27,13 +27,25 @@ Four options. All call the same `build.ps1`, so output is identical.
 
 ### A. GitHub Actions
 
-`.github/workflows/build-bc-extension.yml` runs on `windows-latest`, caches BC artifacts between runs, and uploads `opendims-bc-extension.app` as a workflow artifact. On a published GitHub release, it also attaches the `.app` to the release assets.
+`.github/workflows/build-bc-extension.yml` runs on `windows-latest`, caches BC artifacts between runs, and uploads
+`opendims-bc-extension.app` as a workflow artifact.
 
 Triggers:
-- Push to `develop` / `main`
-- Pull requests
-- Manual: **Actions → Build BC extension → Run workflow** (optional `bcVersion` input)
-- GitHub release created
+
+- Push to `develop` / `main` — builds + uploads workflow artifact only.
+- Push of a tag matching `v*` or `bc-ext-v*` — builds, and **creates a GitHub release for that tag if missing, then
+  attaches the `.app`**.
+- A release created/published from the GitHub UI — same as above, attaches to the existing release.
+- Pull requests — builds + uploads workflow artifact only.
+- Manual: **Actions → Build BC extension → Run workflow** (optional `bcVersion` input).
+
+To cut a customer-facing release in one step:
+
+```bash
+# Bump version in app.json first, commit, then:
+git tag v1.0.1.0
+git push origin v1.0.1.0
+```
 
 Cold build ~5-7 min, warm ~1 min thanks to `actions/cache`.
 

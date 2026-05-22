@@ -1,14 +1,22 @@
 name: Build BC extension
 
 # Compiles this AL extension into a .app file and uploads it as a workflow artifact
-# (always) and as a GitHub release asset (when a release is created).
+# (always) and as a GitHub release asset (when triggered by a tag push or a release event).
 #
 # Uses BcContainerHelper's compiler-folder pattern — no Docker, no Windows container,
 # just the bare compiler downloaded from Microsoft's BC artifacts CDN.
+#
+# To cut a release, push a tag matching v* or bc-ext-v* (e.g. `git tag v1.0.1 && git push origin v1.0.1`).
+# The workflow builds the .app, creates the GitHub release if it doesn't exist yet,
+# and attaches the .app to it. Creating a release from the GitHub UI also works.
 
 on:
   push:
     branches: [develop, main]
+    # Tag push triggers a release build — softprops/action-gh-release creates the release if missing.
+    tags:
+      - 'v*'
+      - 'bc-ext-v*'
   pull_request:
   workflow_dispatch:
     inputs:
@@ -17,7 +25,7 @@ on:
         required: false
         default: ''
   release:
-    types: [created]
+    types: [ created, published ]
 
 jobs:
   build:
@@ -69,9 +77,13 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      - name: Attach to GitHub release
-        if: github.event_name == 'release'
+      - name: Create / attach to GitHub release
+        # Fires on either: a tag push matching the triggers above, OR a release created in the UI.
+        # softprops/action-gh-release creates the release when the tag has none yet, otherwise it
+        # attaches the .app to the existing release for that tag.
+        if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: out/opendims-bc-extension.app
           fail_on_unmatched_files: true
+          generate_release_notes: true
