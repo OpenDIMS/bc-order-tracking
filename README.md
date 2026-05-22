@@ -4,15 +4,18 @@ A per-tenant AL extension that surfaces shipment-tracking data from Business Cen
 
 ## What it adds
 
-Publishes one read-only API endpoint:
+Publishes two read-only API endpoints under `/api/opendims/integration/v1.0/companies({id})/`:
 
-`/api/opendims/integration/v1.0/companies({id})/salesShipments`
+- **`salesShipments`** — rows over Posted Sales Shipment Header. Fields:
+  `id, number, orderNumber, externalDocumentNumber, customerNumber, customerName, shipmentDate, packageTrackingNumber, shippingAgentCode, shippingAgentServiceCode, lastModifiedDateTime`.
+- **`salesInvoiceLinks`** — rows over Posted Sales Invoice Header, exposing the link back to the source order. Fields:
+  `id, invoiceNumber, orderNumber, externalDocumentNumber, customerNumber, postingDate, lastModifiedDateTime`.
 
-Each row maps one Posted Sales Shipment Header from Business Central, exposing:
-`id, number, orderNumber, externalDocumentNumber, customerNumber, customerName, shipmentDate, packageTrackingNumber, shippingAgentCode, shippingAgentServiceCode, lastModifiedDateTime`.
+OpenDIMS uses these endpoints to attach tracking data to imported documents:
 
-OpenDIMS joins these rows back to imported sales orders by `orderNumber`, so tracking shows up on the order in the
-webshop after BC posts the shipment.
+- For **sales orders**: join by `orderNumber` directly to `salesShipments`.
+- For **sales invoices**: chain `invoiceNumber` → `orderNumber` (via `salesInvoiceLinks`) → shipment (via
+  `salesShipments`).
 
 Microsoft's standard `salesOrders` API page is **not** extended — that page lives in an internal `_Exclude_APIV2_`
 symbol that BcContainerHelper deliberately omits, and extending it would break across BC version bumps. The custom
