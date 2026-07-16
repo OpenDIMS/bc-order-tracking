@@ -1,10 +1,12 @@
 # OpenDIMS Business Central extension
 
-A per-tenant AL extension that surfaces shipment-tracking data from Business Central in a shape OpenDIMS can read. It is **not required** to use the BC connectors — install it only when you want to sync tracking numbers and posted shipments back from BC to a webshop.
+A per-tenant AL extension that surfaces Business Central data OpenDIMS needs but the standard API v2.0 does not expose. It is **not required** to use the BC connectors — install it only when a sync needs one of its endpoints, and grant only the matching permission set.
 
 ## What it adds
 
-Publishes two read-only API endpoints under `/api/opendims/integration/v1.0/companies({id})/`:
+Read-only API endpoints under `/api/opendims/integration/v1.0/companies({id})/`:
+
+**Shipment tracking** (permission set `OPENDIMS TRACKING`):
 
 - **`salesShipments`** — rows over Posted Sales Shipment Header. Fields:
   `id, number, orderNumber, externalDocumentNumber, customerNumber, customerName, shipmentDate, packageTrackingNumber, shippingAgentCode, shippingAgentServiceCode, lastModifiedDateTime`.
@@ -16,6 +18,26 @@ OpenDIMS uses these endpoints to attach tracking data to imported documents:
 - For **sales orders**: join by `orderNumber` directly to `salesShipments`.
 - For **sales invoices**: chain `invoiceNumber` → `orderNumber` (via `salesInvoiceLinks`) → shipment (via
   `salesShipments`).
+
+**Discount matrix** (permission set `OPENDIMS DISCOUNTS`) — feeds the BC ↔ webshop discount sync:
+
+- **`customerDiscountGroups`** — Customer Discount Group (Debitorrabatgrupper): `id, code, description, lastModifiedDateTime`.
+- **`itemDiscountGroups`** — Item Discount Group (Varerabatgrupper): `id, code, description, lastModifiedDateTime`.
+- **`priceListLines`** — Price List Line (modern pricing, BC16+ — Salgsprisaftaler incl. line discounts):
+  `id, priceListCode, lineNumber, status, priceType, sourceType, sourceNumber, assetType, assetNumber, variantCode, unitOfMeasureCode, minimumQuantity, amountType, unitPrice, lineDiscountPercent, currencyCode, startingDate, endingDate, lastModifiedDateTime`.
+
+**Composed products** (permission set `OPENDIMS BOM`):
+
+- **`bomComponents`** — Assembly BOM components (table `BOM Component`), the lines of a product that
+  consists of other products: `id, parentItemNumber, lineNumber, type, number, description, quantityPer,
+  unitOfMeasureCode, variantCode, position, lastModifiedDateTime`.
+
+## Permission sets
+
+The extension ships three assignable, read-only permission sets — `OPENDIMS TRACKING`,
+`OPENDIMS DISCOUNTS`, `OPENDIMS BOM` — one per feature area. Assign only the set(s) matching the
+channels a tenant actually runs to the API client (the Microsoft Entra app's BC user), so an
+integration that only reads tracking never has access to pricing or BOM data.
 
 Microsoft's standard `salesOrders` API page is **not** extended — that page lives in an internal `_Exclude_APIV2_`
 symbol that BcContainerHelper deliberately omits, and extending it would break across BC version bumps. The custom

@@ -49,6 +49,13 @@ builder:x:${HOST_GID}:
 nogroup:x:65534:
 EOF
 
+# BcContainerHelper marks the AL compiler binaries executable via `sudo chmod`
+# after unzipping the vsix. The image has no sudo and we run unprivileged —
+# but we own those files, so a shim that just drops the sudo works.
+SUDO_SHIM="$CACHE_DIR/sudo-shim"
+printf '#!/bin/sh\nexec "$@"\n' > "$SUDO_SHIM"
+chmod +x "$SUDO_SHIM"
+
 echo "==> Image:    $IMAGE"
 echo "==> Cache:    $CACHE_DIR"
 echo "==> Output:   $SCRIPT_DIR/out"
@@ -65,6 +72,7 @@ docker run --rm -t \
     -v "$CACHE_DIR/bcartifacts:/home/builder/.bcartifacts.cache" \
     -v "$PASSWD_FILE:/etc/passwd:ro" \
     -v "$GROUP_FILE:/etc/group:ro" \
+    -v "$SUDO_SHIM:/usr/local/bin/sudo:ro" \
     -w /work \
     -e HOME=/home/builder \
     -e USER=builder \
