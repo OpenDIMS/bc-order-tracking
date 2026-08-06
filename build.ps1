@@ -26,6 +26,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Progress bars use cursor-positioning escapes that can wedge pwsh on Linux
+# when the console is a docker pseudo-tty nobody consumes (build hung mid
+# symbol copy at ~0.2% CPU). Also keeps CI logs clean.
+$ProgressPreference = 'SilentlyContinue'
 
 $projectFolder = $PSScriptRoot
 $appJsonPath   = Join-Path $projectFolder 'app.json'
@@ -35,19 +39,21 @@ if (-not (Test-Path $appJsonPath)) {
 }
 
 Write-Host "==> Ensuring BcContainerHelper is installed"
-# 6.1+ is the first version with the cross-platform Compile-AppInBcCompilerFolder cmdlet.
-# Older preinstalled versions (e.g. on GitHub's windows-latest runner) lack it, so enforce a floor.
+# Pinned EXACTLY: 6.1.14 is the first version with the cross-platform
+# Compile-AppInBcCompilerFolder cmdlet, and 6.1.15 regressed New-BcCompilerFolder
+# on Linux (the ALLanguage.vsix is never extracted, so compile dies with
+# "Cannot find path '.../compiler/extension/bin/alc.dll'"). Bump deliberately.
 $requiredVersion = [Version]'6.1.14'
 $available = Get-Module -ListAvailable -Name BcContainerHelper |
-    Where-Object { $_.Version -ge $requiredVersion } |
-    Sort-Object Version -Descending | Select-Object -First 1
+    Where-Object { $_.Version -eq $requiredVersion } |
+    Select-Object -First 1
 if (-not $available) {
-    Write-Host "    No suitable version found — installing >= $requiredVersion"
-    Install-Module -Name BcContainerHelper -MinimumVersion $requiredVersion -Force -AllowClobber -Scope CurrentUser -AcceptLicense
+    Write-Host "    Installing BcContainerHelper $requiredVersion"
+    Install-Module -Name BcContainerHelper -RequiredVersion $requiredVersion -Force -AllowClobber -Scope CurrentUser -AcceptLicense
 }
-# Drop any older version that might already be loaded in this session, then load the suitable one.
+# Drop any other version that might already be loaded in this session, then load the pinned one.
 Remove-Module BcContainerHelper -Force -ErrorAction SilentlyContinue
-Import-Module BcContainerHelper -MinimumVersion $requiredVersion -Force
+Import-Module BcContainerHelper -RequiredVersion $requiredVersion -Force
 $loaded = Get-Module BcContainerHelper
 Write-Host "    Using BcContainerHelper $($loaded.Version) from $($loaded.Path)"
 
@@ -90,7 +96,14 @@ Write-Host "==> Using compile cmdlet: $compileCmd"
 $artifactUrl = Get-BCArtifactUrl -type Sandbox -country w1 -version $BcVersion -select Latest
 Write-Host "==> Using artifact URL: $artifactUrl"
 
-$compilerFolder = New-BcCompilerFolder -artifactUrl $artifactUrl
+# vsixFile 'latest' pulls the newest AL Language extension from the VS
+# marketplace instead of the artifact's own vsix. Required on Linux/macOS for
+# BC 22.0 artifacts: their bundled vsix ships only a Windows .NET-Framework
+# alc.exe (no bin/linux/, no portable alc.dll), so compiles die with
+# "Cannot find path '.../compiler/extension/bin/alc.dll'". Newer AL compilers
+# compile older-runtime apps fine.
+$compilerFolder = New-BcCompilerFolder -artifactUrl $artifactUrl -vsixFile 'latest'
+
 try {
     $appFile = & $compileCmd `
         -compilerFolder $compilerFolder `
