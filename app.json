@@ -2,7 +2,7 @@
   "id": "7b3a8d20-2e8f-4d2e-9d2f-9a3c2e5d1f01",
   "name": "OpenDIMS Integration",
   "publisher": "OpenDIMS",
-  "version": "1.1.0.0",
+  "version": "1.2.0.0",
   "brief": "Exposes BC data OpenDIMS needs that the standard API does not cover.",
   "description": "Publishes read-only API endpoints for OpenDIMS: salesShipments and salesInvoiceLinks (shipment tracking), customerDiscountGroups, itemDiscountGroups and priceListLines (discount matrix sync), and bomComponents (assembly BOM / composed products). Ships granular permission sets (OPENDIMS TRACKING / DISCOUNTS / BOM) so each integration is granted only the data it uses.",
   "privacyStatement": "",
@@ -15,7 +15,7 @@
   "platform": "22.0.0.0",
   "application": "22.0.0.0",
   "idRanges": [
-    { "from": 50100, "to": 50149 }
+    { "from": 85445, "to": 85494 }
   ],
   "resourceExposurePolicy": {
     "allowDebugging": true,

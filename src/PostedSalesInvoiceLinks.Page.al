@@ -6,7 +6,7 @@
 /// Reachable at /api/opendims/integration/v1.0/companies({id})/salesInvoiceLinks
 /// once the extension is installed on the tenant.
 /// </summary>
-page 50102 "ODS Sales Invoice Links"
+page 85446 "ODS Sales Invoice Links"
 {
     PageType = API;
     Caption = 'salesInvoiceLinks', Locked = true;

@@ -3,7 +3,7 @@
 // (Hostedshop DiscountGroup / Kunderabatgruppe).
 //
 // GET /api/opendims/integration/v1.0/companies({companyId})/customerDiscountGroups
-page 50104 "ODS Customer Discount Groups"
+page 85448 "ODS Customer Discount Groups"
 {
     PageType = API;
     Caption = 'customerDiscountGroups', Locked = true;

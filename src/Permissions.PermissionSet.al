@@ -2,7 +2,7 @@
 // grants the OpenDIMS API client exactly the data its channels use and
 // nothing more. All read-only, matching the extension's read-only pages.
 
-permissionset 50107 "OPENDIMS TRACKING"
+permissionset 85451 "OPENDIMS TRACKING"
 {
     Caption = 'OpenDIMS: shipment tracking (read)', Locked = true;
     Assignable = true;
@@ -14,7 +14,7 @@ permissionset 50107 "OPENDIMS TRACKING"
         page "ODS Sales Invoice Links" = X;
 }
 
-permissionset 50108 "OPENDIMS DISCOUNTS"
+permissionset 85452 "OPENDIMS DISCOUNTS"
 {
     Caption = 'OpenDIMS: discount groups & price list lines (read)', Locked = true;
     Assignable = true;
@@ -28,7 +28,7 @@ permissionset 50108 "OPENDIMS DISCOUNTS"
         page "ODS Price List Lines" = X;
 }
 
-permissionset 50109 "OPENDIMS BOM"
+permissionset 85453 "OPENDIMS BOM"
 {
     Caption = 'OpenDIMS: assembly BOM components (read)', Locked = true;
     Assignable = true;
