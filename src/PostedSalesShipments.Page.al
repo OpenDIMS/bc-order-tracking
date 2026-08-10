@@ -3,7 +3,7 @@
 /// Reachable at /api/opendims/integration/v1.0/companies({id})/salesShipments
 /// once the extension is installed on the tenant.
 /// </summary>
-page 50101 "ODS Posted Sales Shipments"
+page 85445 "ODS Posted Sales Shipments"
 {
     PageType = API;
     Caption = 'salesShipments', Locked = true;

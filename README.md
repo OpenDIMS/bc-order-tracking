@@ -143,5 +143,12 @@ After install, in OpenDIMS' BusinessCentralOrdersImport connector, switch **"Use
 ## Notes
 
 - The `id` field in `app.json` is the extension's permanent GUID. Don't change it across versions — BC uses it as the upgrade key.
-- Object id range `50100-50149` is inside the standard per-tenant extension (PTE) range. If you ever ship this on AppSource you must request a dedicated range from Microsoft.
+- Object id range `85445-85494` is inside the standard per-tenant extension (PTE) range, which is shared with every
+  other PTE on the tenant. Version 1.1.0.0 and earlier used `50100-50149` — the range the VS Code AL project template
+  hands out by default — and collided with another partner app on a customer tenant (`The application object of type
+  'Page' with the ID '50101' is defined in multiple apps`). Never move back into the low `50000-50999` block, and if
+  this ever ships on AppSource, request a dedicated range from Microsoft.
+- Renumbering objects is safe for this extension because it contains no tables or table extensions: endpoint URLs come
+  from `APIPublisher`/`APIGroup`/`APIVersion`/`EntitySetName`, and permission set assignments are keyed by name, not by
+  object id. Keep the `app.json` GUID and BC treats a renumbered build as a normal upgrade.
 - The extension is **read-only**: it doesn't write to BC, only exposes data. Uninstalling it is reversible.

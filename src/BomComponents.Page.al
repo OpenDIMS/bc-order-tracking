@@ -5,7 +5,7 @@
 //
 // GET /api/opendims/integration/v1.0/companies({companyId})/bomComponents
 //     ?$filter=parentItemNumber in ('A','B')
-page 50103 "ODS BOM Components"
+page 85447 "ODS BOM Components"
 {
     PageType = API;
     Caption = 'bomComponents', Locked = true;

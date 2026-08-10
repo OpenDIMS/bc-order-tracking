@@ -5,7 +5,7 @@
 //
 // GET /api/opendims/integration/v1.0/companies({companyId})/priceListLines
 //     ?$filter=status eq 'Active' and priceType eq 'Sale'
-page 50106 "ODS Price List Lines"
+page 85450 "ODS Price List Lines"
 {
     PageType = API;
     Caption = 'priceListLines', Locked = true;
