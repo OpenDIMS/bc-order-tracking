@@ -34,10 +34,16 @@ OpenDIMS uses these endpoints to attach tracking data to imported documents:
 
 **Item fields** (permission set `OPENDIMS ITEMS`):
 
+Standard API v2.0 publishes **20** of the Item table's fields. The table has **220**, and almost everything on a
+Danish item card — *Leverandørs varenr.*, *Kostpris (standard)*, *Tarifnr.*, *Hylde nr.*, *Søgebeskrivelse* — is one
+of the 200 it leaves out, not something an add-on put there. These endpoints hand over all of them, and pick up any
+field another extension added on top for free.
+
 - **`tableFields`** — the field catalogue: one row per readable field on the Item table, *including the fields other
   extensions added to the item card on this tenant*. Fields: `tableNumber, fieldNumber, fieldName, fieldCaption,
   elementName, dataType, fieldClass, fieldLength, isCustom, optionMembers`. Built in memory from table metadata on
-  every call, so a field added by installing another extension shows up immediately.
+  every call, so a field added by installing another extension shows up immediately. `isCustom` (field number ≥ 50000)
+  is a label for the reader, not a filter — every readable field is listed.
 - **`odsItems`** — the values: `id, number, displayName, fieldValues` plus the calculated columns
   `assemblyBom, inventory, qtyOnPurchOrder, qtyOnSalesOrder, qtyOnAssemblyOrder, qtyOnAsmComponent, qtyOnJobOrder,
   qtyInTransit, qtyOnPurchReturn, qtyOnSalesReturn, costIsPostedToGL, substitutesExist, stockkeepingUnitExists,
@@ -47,6 +53,12 @@ OpenDIMS uses these endpoints to attach tracking data to imported documents:
   quantity per × qty. per unit of measure, recursing into sub-assemblies) without writing anything back — BC's own
   *Calculate Standard Cost* stores its result on the item, which an API GET must not do. Separate endpoint so only an
   integration that maps it pays for the walk.
+- **`itemStatistics`** — what the item ledger says: `netChange, netInvoicedQty, purchasesQty, salesQty,
+  positiveAdjmtQty, negativeAdjmtQty, transferredQty, purchasesLcy, salesLcy, positiveAdjmtLcy, negativeAdjmtLcy,
+  transferredLcy, cogsLcy, reservedQtyOnInventory, reservedQtyOnSalesOrders, reservedQtyOnPurchOrders,
+  qtyAssignedToShip, qtyPicked, qtyOnServiceOrder, qtyOnProdOrder, qtyOnComponentLines, noOfSubstitutes,
+  lastPhysInvtDate, hasComment`. Unfiltered, these are the totals over the item's whole life. Separate endpoint for
+  the same reason as the BOM cost: every one of them is a calculated column BC has to work out per item.
 
 `fieldValues` is a JSON object holding every readable, non-calculated field of the item **keyed by its Business
 Central field number** — `{"32":"2004210","24":19737.26,"50100":true}` is Vendor Item No., Standard Cost and a
@@ -57,6 +69,10 @@ OpenDIMS too.
 
 Calculated (FlowField) columns cannot travel in `fieldValues` — BC has to compute each one per item — so the ones
 from the item card are named columns instead, and OpenDIMS asks for them with `$select` only when they are mapped.
+Of the Item table's 220 fields that leaves 139 in `fieldValues`, 13 named on `odsItems`, 24 on `itemStatistics`, 13
+flow *filters* that carry no data, and one `MediaSet` (the item picture). The rest are MRP planning internals —
+`Planning Receipt (Qty.)`, `Res. Qty. on Prod. Order Comp.` and the like — left out on purpose; add them to
+`itemStatistics` if a customer ever wants them.
 
 `odsItems` is extensible: another extension can add typed columns with a `pageextension`, and they show up in
 `$metadata` and in OpenDIMS' mapping alongside everything else.

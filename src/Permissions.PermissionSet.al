@@ -54,6 +54,7 @@ permissionset 85460 "OPENDIMS ITEMS"
         page "ODS Items" = X,
         page "ODS Table Fields" = X,
         page "ODS Item BOM Costs" = X,
+        page "ODS Item Statistics" = X,
         codeunit "ODS Field Reflection" = X,
         codeunit "ODS BOM Cost" = X;
 }
