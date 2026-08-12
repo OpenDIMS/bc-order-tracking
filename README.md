@@ -6,12 +6,17 @@ A per-tenant AL extension that surfaces Business Central data OpenDIMS needs but
 
 Read-only API endpoints under `/api/opendims/integration/v1.0/companies({id})/`:
 
-**Shipment tracking** (permission set `OPENDIMS TRACKING`):
+**Posted documents** (permission set `OPENDIMS TRACKING`):
 
 - **`salesShipments`** — rows over Posted Sales Shipment Header. Fields:
-  `id, number, orderNumber, externalDocumentNumber, customerNumber, customerName, shipmentDate, packageTrackingNumber, shippingAgentCode, shippingAgentServiceCode, lastModifiedDateTime`.
+  `id, number, orderNumber, externalDocumentNumber, customerNumber, customerName, shipmentDate, packageTrackingNumber, shippingAgentCode, shippingAgentServiceCode, hasComment, lastModifiedDateTime`, plus `fieldValues` — the other ~100 fields of the shipment.
 - **`salesInvoiceLinks`** — rows over Posted Sales Invoice Header, exposing the link back to the source order. Fields:
-  `id, invoiceNumber, orderNumber, externalDocumentNumber, customerNumber, postingDate, lastModifiedDateTime`.
+  `id, invoiceNumber, orderNumber, externalDocumentNumber, customerNumber, postingDate, lastModifiedDateTime`, plus `fieldValues` and the invoice's calculated columns `amount, amountIncludingVat, remainingAmount, invoiceDiscountAmount, closed, cancelled, corrective, reversed, sentAsEmail, lastEmailSentTime, hasComment`.
+- **`postedSalesInvoiceLines`** — `id, documentNumber, lineNumber, itemNumber, fieldValues, lastModifiedDateTime`. This
+  table has no calculated columns at all, so the dump is the whole of it.
+- **`postedSalesShipmentLines`** — `id, documentNumber, lineNumber, itemNumber, orderNumber, orderLineNumber,
+  fieldValues, currencyCode, lastModifiedDateTime`. `orderNumber`/`orderLineNumber` link a shipped line back to the
+  order line it came from.
 
 OpenDIMS uses these endpoints to attach tracking data to imported documents:
 
@@ -45,6 +50,10 @@ top for free.
 | Customer (18) | 170 | ~25 | `odsCustomers` |
 | Sales Header (36) | 181 | ~30 | `odsSalesDocuments` |
 | Sales Line (37) | 193 | ~25 | `odsSalesDocumentLines` |
+| Sales Invoice Header (112) | 131 | ~30 | `salesInvoiceLinks` |
+| Sales Invoice Line (113) | 102 | ~25 | `postedSalesInvoiceLines` |
+| Sales Shipment Header (110) | 103 | none | `salesShipments` |
+| Sales Shipment Line (111) | 101 | none | `postedSalesShipmentLines` |
 
 - **`tableFields`** — the field catalogue: one row per readable field on those tables, *including the fields other
   extensions added on this tenant*. Fields: `tableNumber, fieldNumber, fieldName, fieldCaption, elementName, dataType,
@@ -95,14 +104,11 @@ Of the Item table's 220 fields that leaves 139 in `fieldValues`, 13 named on `od
 flow *filters* that carry no data, and one `MediaSet` (the item picture). The rest are MRP planning internals —
 `Planning Receipt (Qty.)`, `Res. Qty. on Prod. Order Comp.` and the like — left out on purpose; add them to
 `itemStatistics` if a customer ever wants them. The same split on the other tables: Customer 98 dumped + 14 named,
-Sales Header 160 + 10, Sales Line 180 + 7.
+Sales Header 160 + 10, Sales Line 180 + 7, posted invoice 115 + 11, posted invoice line 102 + 0, posted shipment
+100 + 1, posted shipment line 100 + 1.
 
 These pages are extensible: another extension can add typed columns with a `pageextension`, and they show up in
 `$metadata` and in OpenDIMS' mapping alongside everything else.
-
-Posted documents (Sales Invoice Header/Line, Sales Shipment Header/Line) are **not** covered by the field dump — only
-the `salesShipments` and `salesInvoiceLinks` endpoints above read them. An integration importing posted invoices
-therefore gets the standard API's fields only.
 
 ## Permission sets
 

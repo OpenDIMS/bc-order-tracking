@@ -68,6 +68,10 @@ page 85458 "ODS Table Fields"
         FieldReflection.BuildCatalog(Database::Customer, Rec);
         FieldReflection.BuildCatalog(Database::"Sales Header", Rec);
         FieldReflection.BuildCatalog(Database::"Sales Line", Rec);
+        FieldReflection.BuildCatalog(Database::"Sales Invoice Header", Rec);
+        FieldReflection.BuildCatalog(Database::"Sales Invoice Line", Rec);
+        FieldReflection.BuildCatalog(Database::"Sales Shipment Header", Rec);
+        FieldReflection.BuildCatalog(Database::"Sales Shipment Line", Rec);
     end;
 
     /// Only the tables this app publishes an endpoint for — describing an
@@ -75,6 +79,8 @@ page 85458 "ODS Table Fields"
     local procedure IsSupported(TableNo: Integer): Boolean
     begin
         exit(TableNo in [Database::Item, Database::Customer,
-                         Database::"Sales Header", Database::"Sales Line"]);
+                         Database::"Sales Header", Database::"Sales Line",
+                         Database::"Sales Invoice Header", Database::"Sales Invoice Line",
+                         Database::"Sales Shipment Header", Database::"Sales Shipment Line"]);
     end;
 }

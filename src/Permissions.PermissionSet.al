@@ -9,9 +9,16 @@ permissionset 85451 "OPENDIMS TRACKING"
 
     Permissions =
         tabledata "Sales Shipment Header" = R,
+        tabledata "Sales Shipment Line" = R,
         tabledata "Sales Invoice Header" = R,
+        tabledata "Sales Invoice Line" = R,
+        tabledata "ODS Table Field" = RIMD,
         page "ODS Posted Sales Shipments" = X,
-        page "ODS Sales Invoice Links" = X;
+        page "ODS Sales Invoice Links" = X,
+        page "ODS Posted Sales Inv. Lines" = X,
+        page "ODS Posted Sales Shpt. Lines" = X,
+        page "ODS Table Fields" = X,
+        codeunit "ODS Field Reflection" = X;
 }
 
 permissionset 85452 "OPENDIMS DISCOUNTS"
