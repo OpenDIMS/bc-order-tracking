@@ -54,6 +54,13 @@ top for free.
 | Sales Invoice Line (113) | 102 | ~25 | `postedSalesInvoiceLines` |
 | Sales Shipment Header (110) | 103 | none | `salesShipments` |
 | Sales Shipment Line (111) | 101 | none | `postedSalesShipmentLines` |
+| Vendor (23) | 141 | none | `odsVendors` |
+| Purchase Header (38) | 155 | none | `odsPurchaseDocuments` |
+| Purchase Line (39) | 210 | none | `odsPurchaseDocumentLines` |
+| Purch. Inv. Header (122) | 109 | ~20 (api/v1.0) | `postedPurchaseInvoices` |
+| Purch. Inv. Line (123) | 120 | none | `postedPurchaseInvoiceLines` |
+| Purch. Rcpt. Header (120) | 93 | none | `postedPurchaseReceipts` |
+| Purch. Rcpt. Line (121) | 127 | none | `postedPurchaseReceiptLines` |
 
 - **`tableFields`** — the field catalogue: one row per readable field on those tables, *including the fields other
   extensions added on this tenant*. Fields: `tableNumber, fieldNumber, fieldName, fieldCaption, elementName, dataType,
@@ -91,6 +98,26 @@ top for free.
   lastModifiedDateTime`. `lineNumber` is the Sales Line's own *Line No.*, which is what the standard API calls
   `sequence` on an order line — that pair is how OpenDIMS matches a line up.
 
+**The buying side** (permission sets `OPENDIMS VENDORS`, `OPENDIMS PURCHASES`) — where the standard API gives nothing
+at all, so these are the only route to any of it:
+
+- **`odsVendors`** — `id, number, displayName, fieldValues` plus the vendor ledger's `balance, balanceLcy, balanceDue,
+  balanceDueLcy, netChange, netChangeLcy, purchasesLcy, invAmountsLcy, paymentsLcy, outstandingOrders,
+  outstandingOrdersLcy, amtRcdNotInvoiced, amtRcdNotInvoicedLcy, hasComment, lastModifiedDateTime`.
+- **`odsPurchaseDocuments`** / **`odsPurchaseDocumentLines`** — the open purchase documents. Both tables are keyed by
+  document type, so `documentType` travels with every row and a caller filters on it
+  (`?$filter=documentType eq 'Order' and number in ('P-ORD-1')`). The header adds `amount, amountIncludingVat,
+  invoiceDiscountAmount, completelyReceived, partiallyInvoiced, amtRcdNotInvoicedLcy, numberOfArchivedVersions,
+  pendingApprovals, hasComment`; the line adds `reservedQuantity, qtyToAssign, qtyAssigned, attachedDocCount`.
+- **`postedPurchaseInvoices`** / **`postedPurchaseInvoiceLines`** — `number, vendorNumber, orderNumber, fieldValues`
+  plus `amount, amountIncludingVat, remainingAmount, invoiceDiscountAmount, closed, cancelled, corrective,
+  hasComment`. Microsoft publishes a `postedPurchaseInvoices` of its own on the older `api/v1.0` surface; this one is
+  under the `opendims` publisher and carries every field rather than a fixed subset. The line table has no calculated
+  columns, so its dump is the whole of it.
+- **`postedPurchaseReceipts`** / **`postedPurchaseReceiptLines`** — `number, vendorNumber, orderNumber, fieldValues,
+  hasComment`, and on the line `itemNumber, orderNumber, orderLineNumber, currencyCode` linking a received line back
+  to the order line it came from.
+
 `fieldValues` is a JSON object holding every readable, non-calculated field of the record **keyed by its Business
 Central field number** — `{"32":"2004210","24":19737.26,"50100":true}` is Vendor Item No., Standard Cost and a
 custom field. The number is the only part of a field that survives a rename and does not change with the display
@@ -105,15 +132,17 @@ flow *filters* that carry no data, and one `MediaSet` (the item picture). The re
 `Planning Receipt (Qty.)`, `Res. Qty. on Prod. Order Comp.` and the like — left out on purpose; add them to
 `itemStatistics` if a customer ever wants them. The same split on the other tables: Customer 98 dumped + 14 named,
 Sales Header 160 + 10, Sales Line 180 + 7, posted invoice 115 + 11, posted invoice line 102 + 0, posted shipment
-100 + 1, posted shipment line 100 + 1.
+100 + 1, posted shipment line 100 + 1, Vendor 75 + 14, Purchase Header 141 + 9, Purchase Line 202 + 4, posted
+purchase invoice 100 + 8, its line 120 + 0, posted receipt 91 + 1, its line 126 + 1.
 
 These pages are extensible: another extension can add typed columns with a `pageextension`, and they show up in
 `$metadata` and in OpenDIMS' mapping alongside everything else.
 
 ## Permission sets
 
-The extension ships six assignable, read-only permission sets — `OPENDIMS TRACKING`,
-`OPENDIMS DISCOUNTS`, `OPENDIMS BOM`, `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES` — one per feature area. Assign only the set(s) matching the
+The extension ships eight assignable, read-only permission sets — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
+`OPENDIMS BOM`, `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES`, `OPENDIMS VENDORS`, `OPENDIMS PURCHASES` —
+one per feature area. Assign only the set(s) matching the
 channels a tenant actually runs to the API client (the Microsoft Entra app's BC user), so an
 integration that only reads tracking never has access to pricing or BOM data.
 

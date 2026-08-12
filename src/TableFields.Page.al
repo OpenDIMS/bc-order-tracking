@@ -1,6 +1,6 @@
 // The field catalogue OpenDIMS reads to find out what a tenant's records
 // actually look like: one row per readable field on the item, customer and
-// sales document tables, including the fields other extensions added there.
+// sales and purchase document tables, including the fields other extensions added there.
 //
 // It is what turns the opaque numeric keys in odsItems.fieldValues into
 // mappable elements — elementName is the name OpenDIMS shows in its field
@@ -72,6 +72,13 @@ page 85458 "ODS Table Fields"
         FieldReflection.BuildCatalog(Database::"Sales Invoice Line", Rec);
         FieldReflection.BuildCatalog(Database::"Sales Shipment Header", Rec);
         FieldReflection.BuildCatalog(Database::"Sales Shipment Line", Rec);
+        FieldReflection.BuildCatalog(Database::Vendor, Rec);
+        FieldReflection.BuildCatalog(Database::"Purchase Header", Rec);
+        FieldReflection.BuildCatalog(Database::"Purchase Line", Rec);
+        FieldReflection.BuildCatalog(Database::"Purch. Inv. Header", Rec);
+        FieldReflection.BuildCatalog(Database::"Purch. Inv. Line", Rec);
+        FieldReflection.BuildCatalog(Database::"Purch. Rcpt. Header", Rec);
+        FieldReflection.BuildCatalog(Database::"Purch. Rcpt. Line", Rec);
     end;
 
     /// Only the tables this app publishes an endpoint for — describing an
@@ -81,6 +88,9 @@ page 85458 "ODS Table Fields"
         exit(TableNo in [Database::Item, Database::Customer,
                          Database::"Sales Header", Database::"Sales Line",
                          Database::"Sales Invoice Header", Database::"Sales Invoice Line",
-                         Database::"Sales Shipment Header", Database::"Sales Shipment Line"]);
+                         Database::"Sales Shipment Header", Database::"Sales Shipment Line",
+                         Database::Vendor, Database::"Purchase Header", Database::"Purchase Line",
+                         Database::"Purch. Inv. Header", Database::"Purch. Inv. Line",
+                         Database::"Purch. Rcpt. Header", Database::"Purch. Rcpt. Line"]);
     end;
 }

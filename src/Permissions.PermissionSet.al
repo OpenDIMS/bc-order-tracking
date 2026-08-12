@@ -45,6 +45,42 @@ permissionset 85453 "OPENDIMS BOM"
         page "ODS BOM Components" = X;
 }
 
+permissionset 85476 "OPENDIMS VENDORS"
+{
+    Caption = 'OpenDIMS: extended vendor fields (read)', Locked = true;
+    Assignable = true;
+
+    Permissions =
+        tabledata Vendor = R,
+        tabledata "ODS Table Field" = RIMD,
+        page "ODS Vendors" = X,
+        page "ODS Table Fields" = X,
+        codeunit "ODS Field Reflection" = X;
+}
+
+permissionset 85477 "OPENDIMS PURCHASES"
+{
+    Caption = 'OpenDIMS: purchase documents, posted and open (read)', Locked = true;
+    Assignable = true;
+
+    Permissions =
+        tabledata "Purchase Header" = R,
+        tabledata "Purchase Line" = R,
+        tabledata "Purch. Inv. Header" = R,
+        tabledata "Purch. Inv. Line" = R,
+        tabledata "Purch. Rcpt. Header" = R,
+        tabledata "Purch. Rcpt. Line" = R,
+        tabledata "ODS Table Field" = RIMD,
+        page "ODS Purchase Documents" = X,
+        page "ODS Purchase Document Lines" = X,
+        page "ODS Posted Purch. Invoices" = X,
+        page "ODS Posted Purch. Inv. Lines" = X,
+        page "ODS Posted Purch. Receipts" = X,
+        page "ODS Posted Purch. Rcpt. Lines" = X,
+        page "ODS Table Fields" = X,
+        codeunit "ODS Field Reflection" = X;
+}
+
 permissionset 85465 "OPENDIMS CUSTOMERS"
 {
     Caption = 'OpenDIMS: extended customer fields (read)', Locked = true;
