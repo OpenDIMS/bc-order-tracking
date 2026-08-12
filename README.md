@@ -32,10 +32,39 @@ OpenDIMS uses these endpoints to attach tracking data to imported documents:
   consists of other products: `id, parentItemNumber, lineNumber, type, number, description, quantityPer,
   unitOfMeasureCode, variantCode, position, lastModifiedDateTime`.
 
+**Item fields** (permission set `OPENDIMS ITEMS`):
+
+- **`tableFields`** — the field catalogue: one row per readable field on the Item table, *including the fields other
+  extensions added to the item card on this tenant*. Fields: `tableNumber, fieldNumber, fieldName, fieldCaption,
+  elementName, dataType, fieldClass, fieldLength, isCustom, optionMembers`. Built in memory from table metadata on
+  every call, so a field added by installing another extension shows up immediately.
+- **`odsItems`** — the values: `id, number, displayName, fieldValues` plus the calculated columns
+  `assemblyBom, inventory, qtyOnPurchOrder, qtyOnSalesOrder, qtyOnAssemblyOrder, qtyOnAsmComponent, qtyOnJobOrder,
+  qtyInTransit, qtyOnPurchReturn, qtyOnSalesReturn, costIsPostedToGL, substitutesExist, stockkeepingUnitExists,
+  lastModifiedDateTime`.
+- **`itemBomCosts`** — `id, number, assemblyBom, componentCount, calculatedBomCost, standardCost, unitCost,
+  lastDirectCost, lastModifiedDateTime`. `calculatedBomCost` rolls the assembly BOM up again on the spot (components ×
+  quantity per × qty. per unit of measure, recursing into sub-assemblies) without writing anything back — BC's own
+  *Calculate Standard Cost* stores its result on the item, which an API GET must not do. Separate endpoint so only an
+  integration that maps it pays for the walk.
+
+`fieldValues` is a JSON object holding every readable, non-calculated field of the item **keyed by its Business
+Central field number** — `{"32":"2004210","24":19737.26,"50100":true}` is Vendor Item No., Standard Cost and a
+custom field. The number is the only part of a field that survives a rename and does not change with the display
+language, which is what keeps an OpenDIMS mapping stable. `tableFields.elementName` (`BCField_32_VendorItemNo`)
+names those numbers for the mapping UI. Empty values are sent as `null` so clearing a value in BC clears it in
+OpenDIMS too.
+
+Calculated (FlowField) columns cannot travel in `fieldValues` — BC has to compute each one per item — so the ones
+from the item card are named columns instead, and OpenDIMS asks for them with `$select` only when they are mapped.
+
+`odsItems` is extensible: another extension can add typed columns with a `pageextension`, and they show up in
+`$metadata` and in OpenDIMS' mapping alongside everything else.
+
 ## Permission sets
 
-The extension ships three assignable, read-only permission sets — `OPENDIMS TRACKING`,
-`OPENDIMS DISCOUNTS`, `OPENDIMS BOM` — one per feature area. Assign only the set(s) matching the
+The extension ships four assignable, read-only permission sets — `OPENDIMS TRACKING`,
+`OPENDIMS DISCOUNTS`, `OPENDIMS BOM`, `OPENDIMS ITEMS` — one per feature area. Assign only the set(s) matching the
 channels a tenant actually runs to the API client (the Microsoft Entra app's BC user), so an
 integration that only reads tracking never has access to pricing or BOM data.
 
@@ -148,7 +177,9 @@ After install, in OpenDIMS' BusinessCentralOrdersImport connector, switch **"Use
   hands out by default — and collided with another partner app on a customer tenant (`The application object of type
   'Page' with the ID '50101' is defined in multiple apps`). Never move back into the low `50000-50999` block, and if
   this ever ships on AppSource, request a dedicated range from Microsoft.
-- Renumbering objects is safe for this extension because it contains no tables or table extensions: endpoint URLs come
-  from `APIPublisher`/`APIGroup`/`APIVersion`/`EntitySetName`, and permission set assignments are keyed by name, not by
-  object id. Keep the `app.json` GUID and BC treats a renumbered build as a normal upgrade.
+- Renumbering objects is safe for this extension: endpoint URLs come from
+  `APIPublisher`/`APIGroup`/`APIVersion`/`EntitySetName`, and permission set assignments are keyed by name, not by
+  object id. Keep the `app.json` GUID and BC treats a renumbered build as a normal upgrade. The one table it owns
+  (`ODS Table Field`) is only ever used as a temporary record and never holds a row in the tenant's database, and
+  there are no table extensions, so no customer data rides on an object id.
 - The extension is **read-only**: it doesn't write to BC, only exposes data. Uninstalling it is reversible.

@@ -37,3 +37,23 @@ permissionset 85453 "OPENDIMS BOM"
         tabledata "BOM Component" = R,
         page "ODS BOM Components" = X;
 }
+
+permissionset 85460 "OPENDIMS ITEMS"
+{
+    Caption = 'OpenDIMS: extended item fields & BOM cost (read)', Locked = true;
+    Assignable = true;
+
+    // "ODS Table Field" is only ever used as a temporary record, but a
+    // temporary record still needs the permission on its table object.
+    Permissions =
+        tabledata Item = R,
+        tabledata "Item Unit of Measure" = R,
+        tabledata Resource = R,
+        tabledata "BOM Component" = R,
+        tabledata "ODS Table Field" = RIMD,
+        page "ODS Items" = X,
+        page "ODS Table Fields" = X,
+        page "ODS Item BOM Costs" = X,
+        codeunit "ODS Field Reflection" = X,
+        codeunit "ODS BOM Cost" = X;
+}
