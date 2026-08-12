@@ -61,6 +61,13 @@ top for free.
 | Purch. Inv. Line (123) | 120 | none | `postedPurchaseInvoiceLines` |
 | Purch. Rcpt. Header (120) | 93 | none | `postedPurchaseReceipts` |
 | Purch. Rcpt. Line (121) | 127 | none | `postedPurchaseReceiptLines` |
+| Item Ledger Entry (32) | 81 | none | `itemLedgerEntries` |
+| Value Entry (5802) | 76 | none | `valueEntries` |
+| Cust. Ledger Entry (21) | 88 | none | `customerLedgerEntries` |
+| Detailed Cust. Ledg. Entry (379) | 38 | none | `detailedCustomerLedgerEntries` |
+| Vendor Ledger Entry (25) | 84 | none | `vendorLedgerEntries` |
+| Detailed Vendor Ledg. Entry (380) | 38 | none | `detailedVendorLedgerEntries` |
+| G/L Entry (17) | 65 | ~15 | `generalLedgerEntries` |
 
 - **`tableFields`** — the field catalogue: one row per readable field on those tables, *including the fields other
   extensions added on this tenant*. Fields: `tableNumber, fieldNumber, fieldName, fieldCaption, elementName, dataType,
@@ -118,6 +125,25 @@ at all, so these are the only route to any of it:
   hasComment`, and on the line `itemNumber, orderNumber, orderLineNumber, currencyCode` linking a received line back
   to the order line it came from.
 
+**The ledgers** (permission set `OPENDIMS LEDGERS`) — what actually happened, rather than what a document says:
+
+- **`itemLedgerEntries`** — `entryNumber, itemNumber, postingDate, documentNumber, entryType, sourceNumber,
+  fieldValues` plus `costAmountActual, costAmountExpected, costAmountNonInvtbl, salesAmountActual,
+  salesAmountExpected, purchaseAmountActual, purchaseAmountExpected, reservedQuantity`.
+- **`valueEntries`** — where an item's cost history actually lives. Every amount on it is stored rather than
+  calculated, so the dump is the whole record; `itemLedgerEntryNumber` links it to the movement it values.
+- **`customerLedgerEntries`** / **`vendorLedgerEntries`** — `entryNumber, customerNumber` (or `vendorNumber`),
+  `postingDate, documentNumber, open, fieldValues` plus `amount, amountLcy, remainingAmount, remainingAmountLcy,
+  originalAmount, originalAmountLcy, debitAmount, creditAmount, debitAmountLcy, creditAmountLcy`.
+- **`detailedCustomerLedgerEntries`** / **`detailedVendorLedgerEntries`** — the applications, payments and
+  adjustments behind those balances. Nothing on them is calculated.
+- **`generalLedgerEntries`** — `entryNumber, accountNumber, accountName, postingDate, documentNumber, amount,
+  fieldValues`.
+
+All seven are keyed by a single `Entry No.`, so there are no lines and no document type — and they are the largest
+tables a company has. Every page names `postingDate` so a caller can bound its reads with it; the `Shortcut Dimension
+3-8` flowfields are deliberately *not* named, since almost no company uses them and each costs a lookup per row.
+
 `fieldValues` is a JSON object holding every readable, non-calculated field of the record **keyed by its Business
 Central field number** — `{"32":"2004210","24":19737.26,"50100":true}` is Vendor Item No., Standard Cost and a
 custom field. The number is the only part of a field that survives a rename and does not change with the display
@@ -140,9 +166,9 @@ These pages are extensible: another extension can add typed columns with a `page
 
 ## Permission sets
 
-The extension ships eight assignable, read-only permission sets — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
-`OPENDIMS BOM`, `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES`, `OPENDIMS VENDORS`, `OPENDIMS PURCHASES` —
-one per feature area. Assign only the set(s) matching the
+The extension ships nine assignable, read-only permission sets — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
+`OPENDIMS BOM`, `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES`, `OPENDIMS VENDORS`, `OPENDIMS PURCHASES`,
+`OPENDIMS LEDGERS` — one per feature area. Assign only the set(s) matching the
 channels a tenant actually runs to the API client (the Microsoft Entra app's BC user), so an
 integration that only reads tracking never has access to pricing or BOM data.
 

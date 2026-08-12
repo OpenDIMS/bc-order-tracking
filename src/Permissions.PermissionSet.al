@@ -45,6 +45,31 @@ permissionset 85453 "OPENDIMS BOM"
         page "ODS BOM Components" = X;
 }
 
+permissionset 85485 "OPENDIMS LEDGERS"
+{
+    Caption = 'OpenDIMS: item, customer, vendor and G/L entries (read)', Locked = true;
+    Assignable = true;
+
+    Permissions =
+        tabledata "Item Ledger Entry" = R,
+        tabledata "Value Entry" = R,
+        tabledata "Cust. Ledger Entry" = R,
+        tabledata "Detailed Cust. Ledg. Entry" = R,
+        tabledata "Vendor Ledger Entry" = R,
+        tabledata "Detailed Vendor Ledg. Entry" = R,
+        tabledata "G/L Entry" = R,
+        tabledata "ODS Table Field" = RIMD,
+        page "ODS Item Ledger Entries" = X,
+        page "ODS Value Entries" = X,
+        page "ODS Cust. Ledger Entries" = X,
+        page "ODS Det. Cust. Ledg. Entries" = X,
+        page "ODS Vendor Ledger Entries" = X,
+        page "ODS Det. Vendor Ledg. Entries" = X,
+        page "ODS General Ledger Entries" = X,
+        page "ODS Table Fields" = X,
+        codeunit "ODS Field Reflection" = X;
+}
+
 permissionset 85476 "OPENDIMS VENDORS"
 {
     Caption = 'OpenDIMS: extended vendor fields (read)', Locked = true;

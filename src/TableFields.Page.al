@@ -1,6 +1,6 @@
 // The field catalogue OpenDIMS reads to find out what a tenant's records
 // actually look like: one row per readable field on the item, customer and
-// sales and purchase document tables, including the fields other extensions added there.
+// sales and purchase document tables and the ledgers, including the fields other extensions added there.
 //
 // It is what turns the opaque numeric keys in odsItems.fieldValues into
 // mappable elements — elementName is the name OpenDIMS shows in its field
@@ -79,6 +79,13 @@ page 85458 "ODS Table Fields"
         FieldReflection.BuildCatalog(Database::"Purch. Inv. Line", Rec);
         FieldReflection.BuildCatalog(Database::"Purch. Rcpt. Header", Rec);
         FieldReflection.BuildCatalog(Database::"Purch. Rcpt. Line", Rec);
+        FieldReflection.BuildCatalog(Database::"Item Ledger Entry", Rec);
+        FieldReflection.BuildCatalog(Database::"Value Entry", Rec);
+        FieldReflection.BuildCatalog(Database::"Cust. Ledger Entry", Rec);
+        FieldReflection.BuildCatalog(Database::"Detailed Cust. Ledg. Entry", Rec);
+        FieldReflection.BuildCatalog(Database::"Vendor Ledger Entry", Rec);
+        FieldReflection.BuildCatalog(Database::"Detailed Vendor Ledg. Entry", Rec);
+        FieldReflection.BuildCatalog(Database::"G/L Entry", Rec);
     end;
 
     /// Only the tables this app publishes an endpoint for — describing an
@@ -91,6 +98,10 @@ page 85458 "ODS Table Fields"
                          Database::"Sales Shipment Header", Database::"Sales Shipment Line",
                          Database::Vendor, Database::"Purchase Header", Database::"Purchase Line",
                          Database::"Purch. Inv. Header", Database::"Purch. Inv. Line",
-                         Database::"Purch. Rcpt. Header", Database::"Purch. Rcpt. Line"]);
+                         Database::"Purch. Rcpt. Header", Database::"Purch. Rcpt. Line",
+                         Database::"Item Ledger Entry", Database::"Value Entry",
+                         Database::"Cust. Ledger Entry", Database::"Detailed Cust. Ledg. Entry",
+                         Database::"Vendor Ledger Entry", Database::"Detailed Vendor Ledg. Entry",
+                         Database::"G/L Entry"]);
     end;
 }
