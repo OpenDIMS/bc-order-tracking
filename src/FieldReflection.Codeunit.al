@@ -50,6 +50,12 @@ codeunit 85455 "ODS Field Reflection"
         Index: Integer;
     begin
         RecRef.Open(TableNo);
+        // An API user granted only some of the permission sets should not be
+        // offered fields it will never be allowed to read.
+        if not RecRef.ReadPermission() then begin
+            RecRef.Close();
+            exit;
+        end;
         for Index := 1 to RecRef.FieldCount() do begin
             FldRef := RecRef.FieldIndex(Index);
             if IsReadable(FldRef) then

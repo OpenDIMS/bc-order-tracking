@@ -32,18 +32,26 @@ OpenDIMS uses these endpoints to attach tracking data to imported documents:
   consists of other products: `id, parentItemNumber, lineNumber, type, number, description, quantityPer,
   unitOfMeasureCode, variantCode, position, lastModifiedDateTime`.
 
-**Item fields** (permission set `OPENDIMS ITEMS`):
+**The whole record, not the API's slice** (permission sets `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES`):
 
-Standard API v2.0 publishes **20** of the Item table's fields. The table has **220**, and almost everything on a
-Danish item card — *Leverandørs varenr.*, *Kostpris (standard)*, *Tarifnr.*, *Hylde nr.*, *Søgebeskrivelse* — is one
-of the 200 it leaves out, not something an add-on put there. These endpoints hand over all of them, and pick up any
-field another extension added on top for free.
+Standard API v2.0 publishes a fraction of what Business Central's tables hold, and almost everything it leaves out is
+ordinary Business Central — *Leverandørs varenr.*, *Kostpris (standard)*, *Vores kontonr.*, *Deres reference* — not
+something an add-on put there. These endpoints hand over the rest, and pick up any field another extension added on
+top for free.
 
-- **`tableFields`** — the field catalogue: one row per readable field on the Item table, *including the fields other
-  extensions added to the item card on this tenant*. Fields: `tableNumber, fieldNumber, fieldName, fieldCaption,
-  elementName, dataType, fieldClass, fieldLength, isCustom, optionMembers`. Built in memory from table metadata on
-  every call, so a field added by installing another extension shows up immediately. `isCustom` (field number ≥ 50000)
-  is a label for the reader, not a filter — every readable field is listed.
+| Table | Fields | v2.0 API publishes | Endpoint |
+|---|---|---|---|
+| Item (27) | 220 | ~20 | `odsItems`, `itemBomCosts`, `itemStatistics` |
+| Customer (18) | 170 | ~25 | `odsCustomers` |
+| Sales Header (36) | 181 | ~30 | `odsSalesDocuments` |
+| Sales Line (37) | 193 | ~25 | `odsSalesDocumentLines` |
+
+- **`tableFields`** — the field catalogue: one row per readable field on those tables, *including the fields other
+  extensions added on this tenant*. Fields: `tableNumber, fieldNumber, fieldName, fieldCaption, elementName, dataType,
+  fieldClass, fieldLength, isCustom, optionMembers`. Built in memory from table metadata on every call, so a field
+  added by installing another extension shows up immediately. Filter it (`?$filter=tableNumber eq 18`) to describe one
+  table; unfiltered it describes all four, skipping any the API user has no read permission for. `isCustom` (field
+  number ≥ 50000) is a label for the reader, not a filter — every readable field is listed.
 - **`odsItems`** — the values: `id, number, displayName, fieldValues` plus the calculated columns
   `assemblyBom, inventory, qtyOnPurchOrder, qtyOnSalesOrder, qtyOnAssemblyOrder, qtyOnAsmComponent, qtyOnJobOrder,
   qtyInTransit, qtyOnPurchReturn, qtyOnSalesReturn, costIsPostedToGL, substitutesExist, stockkeepingUnitExists,
@@ -59,8 +67,22 @@ field another extension added on top for free.
   qtyAssignedToShip, qtyPicked, qtyOnServiceOrder, qtyOnProdOrder, qtyOnComponentLines, noOfSubstitutes,
   lastPhysInvtDate, hasComment`. Unfiltered, these are the totals over the item's whole life. Separate endpoint for
   the same reason as the BOM cost: every one of them is a calculated column BC has to work out per item.
+- **`odsCustomers`** — `id, number, displayName, fieldValues` plus the balances the customer card shows:
+  `balance, balanceLcy, balanceDue, balanceDueLcy, netChange, netChangeLcy, salesLcy, profitLcy, invAmountsLcy,
+  paymentsLcy, outstandingOrdersLcy, outstandingInvoicesLcy, shippedNotInvoicedLcy, hasComment,
+  lastModifiedDateTime`. These are sums over the customer ledger with a SIFT index behind them, cheap enough to sit on
+  the main page rather than on an endpoint of their own.
+- **`odsSalesDocuments`** — the *open* sales documents (Sales Header, not the posted ones): `id, documentType, number,
+  customerNumber, fieldValues` plus `amount, amountIncludingVat, invoiceDiscountAmount, shipped, completelyShipped,
+  shippedNotInvoiced, lastShipmentDate, lateOrderShipping, numberOfArchivedVersions, hasComment,
+  lastModifiedDateTime`. The table's key is (Document Type, No.), so `documentType` travels with every row and a
+  caller matching on the number alone must filter on it: `?$filter=documentType eq 'Order' and number in ('S-ORD-1')`.
+- **`odsSalesDocumentLines`** — `id, documentType, documentNumber, lineNumber, fieldValues` plus `reservedQuantity,
+  whseOutstandingQty, qtyToAssign, qtyAssigned, substitutionAvailable, postingDate, attachedDocCount,
+  lastModifiedDateTime`. `lineNumber` is the Sales Line's own *Line No.*, which is what the standard API calls
+  `sequence` on an order line — that pair is how OpenDIMS matches a line up.
 
-`fieldValues` is a JSON object holding every readable, non-calculated field of the item **keyed by its Business
+`fieldValues` is a JSON object holding every readable, non-calculated field of the record **keyed by its Business
 Central field number** — `{"32":"2004210","24":19737.26,"50100":true}` is Vendor Item No., Standard Cost and a
 custom field. The number is the only part of a field that survives a rename and does not change with the display
 language, which is what keeps an OpenDIMS mapping stable. `tableFields.elementName` (`BCField_32_VendorItemNo`)
@@ -72,15 +94,20 @@ from the item card are named columns instead, and OpenDIMS asks for them with `$
 Of the Item table's 220 fields that leaves 139 in `fieldValues`, 13 named on `odsItems`, 24 on `itemStatistics`, 13
 flow *filters* that carry no data, and one `MediaSet` (the item picture). The rest are MRP planning internals —
 `Planning Receipt (Qty.)`, `Res. Qty. on Prod. Order Comp.` and the like — left out on purpose; add them to
-`itemStatistics` if a customer ever wants them.
+`itemStatistics` if a customer ever wants them. The same split on the other tables: Customer 98 dumped + 14 named,
+Sales Header 160 + 10, Sales Line 180 + 7.
 
-`odsItems` is extensible: another extension can add typed columns with a `pageextension`, and they show up in
+These pages are extensible: another extension can add typed columns with a `pageextension`, and they show up in
 `$metadata` and in OpenDIMS' mapping alongside everything else.
+
+Posted documents (Sales Invoice Header/Line, Sales Shipment Header/Line) are **not** covered by the field dump — only
+the `salesShipments` and `salesInvoiceLinks` endpoints above read them. An integration importing posted invoices
+therefore gets the standard API's fields only.
 
 ## Permission sets
 
-The extension ships four assignable, read-only permission sets — `OPENDIMS TRACKING`,
-`OPENDIMS DISCOUNTS`, `OPENDIMS BOM`, `OPENDIMS ITEMS` — one per feature area. Assign only the set(s) matching the
+The extension ships six assignable, read-only permission sets — `OPENDIMS TRACKING`,
+`OPENDIMS DISCOUNTS`, `OPENDIMS BOM`, `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES` — one per feature area. Assign only the set(s) matching the
 channels a tenant actually runs to the API client (the Microsoft Entra app's BC user), so an
 integration that only reads tracking never has access to pricing or BOM data.
 

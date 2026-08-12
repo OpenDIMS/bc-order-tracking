@@ -1,6 +1,6 @@
-// The field catalogue OpenDIMS reads to find out what a tenant's items
-// actually look like: one row per readable field on the Item table, including
-// the fields other extensions added there.
+// The field catalogue OpenDIMS reads to find out what a tenant's records
+// actually look like: one row per readable field on the item, customer and
+// sales document tables, including the fields other extensions added there.
 //
 // It is what turns the opaque numeric keys in odsItems.fieldValues into
 // mappable elements — elementName is the name OpenDIMS shows in its field
@@ -53,9 +53,28 @@ page 85458 "ODS Table Fields"
         FieldReflection: Codeunit "ODS Field Reflection";
 
     trigger OnOpenPage()
+    var
+        Requested: Integer;
     begin
-        // Only the Item table for now — the table number travels with every row
-        // so further tables can be added without breaking existing consumers.
+        // Building every table costs nothing but time, so honour a
+        // "tableNumber eq 27" filter and describe only what was asked for.
+        if Evaluate(Requested, Rec.GetFilter("Table No.")) then
+            if IsSupported(Requested) then begin
+                FieldReflection.BuildCatalog(Requested, Rec);
+                exit;
+            end;
+
         FieldReflection.BuildCatalog(Database::Item, Rec);
+        FieldReflection.BuildCatalog(Database::Customer, Rec);
+        FieldReflection.BuildCatalog(Database::"Sales Header", Rec);
+        FieldReflection.BuildCatalog(Database::"Sales Line", Rec);
+    end;
+
+    /// Only the tables this app publishes an endpoint for — describing an
+    /// arbitrary table would hand out metadata the API user has no page for.
+    local procedure IsSupported(TableNo: Integer): Boolean
+    begin
+        exit(TableNo in [Database::Item, Database::Customer,
+                         Database::"Sales Header", Database::"Sales Line"]);
     end;
 }

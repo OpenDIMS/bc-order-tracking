@@ -38,6 +38,34 @@ permissionset 85453 "OPENDIMS BOM"
         page "ODS BOM Components" = X;
 }
 
+permissionset 85465 "OPENDIMS CUSTOMERS"
+{
+    Caption = 'OpenDIMS: extended customer fields (read)', Locked = true;
+    Assignable = true;
+
+    Permissions =
+        tabledata Customer = R,
+        tabledata "ODS Table Field" = RIMD,
+        page "ODS Customers" = X,
+        page "ODS Table Fields" = X,
+        codeunit "ODS Field Reflection" = X;
+}
+
+permissionset 85466 "OPENDIMS SALES"
+{
+    Caption = 'OpenDIMS: extended sales document fields (read)', Locked = true;
+    Assignable = true;
+
+    Permissions =
+        tabledata "Sales Header" = R,
+        tabledata "Sales Line" = R,
+        tabledata "ODS Table Field" = RIMD,
+        page "ODS Sales Documents" = X,
+        page "ODS Sales Document Lines" = X,
+        page "ODS Table Fields" = X,
+        codeunit "ODS Field Reflection" = X;
+}
+
 permissionset 85460 "OPENDIMS ITEMS"
 {
     Caption = 'OpenDIMS: extended item fields & BOM cost (read)', Locked = true;
