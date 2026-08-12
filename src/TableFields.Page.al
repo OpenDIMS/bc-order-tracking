@@ -56,13 +56,17 @@ page 85458 "ODS Table Fields"
     var
         Requested: Integer;
     begin
-        // Building every table costs nothing but time, so honour a
-        // "tableNumber eq 27" filter and describe only what was asked for.
-        if Evaluate(Requested, Rec.GetFilter("Table No.")) then
-            if IsSupported(Requested) then begin
+        // Any table the API user may read — the named endpoints cover the ones
+        // OpenDIMS uses daily, tableRecords covers the rest of Business Central,
+        // and both need their fields named. Business Central's own permissions
+        // are the boundary; a table this client cannot read describes as empty.
+        if Evaluate(Requested, Rec.GetFilter("Table No.")) then begin
+            if FieldReflection.IsReadableTable(Requested) then
                 FieldReflection.BuildCatalog(Requested, Rec);
-                exit;
-            end;
+            exit;
+        end;
+
+        // Unfiltered: the tables this app publishes an endpoint of its own for.
 
         FieldReflection.BuildCatalog(Database::Item, Rec);
         FieldReflection.BuildCatalog(Database::Customer, Rec);
@@ -88,20 +92,4 @@ page 85458 "ODS Table Fields"
         FieldReflection.BuildCatalog(Database::"G/L Entry", Rec);
     end;
 
-    /// Only the tables this app publishes an endpoint for — describing an
-    /// arbitrary table would hand out metadata the API user has no page for.
-    local procedure IsSupported(TableNo: Integer): Boolean
-    begin
-        exit(TableNo in [Database::Item, Database::Customer,
-                         Database::"Sales Header", Database::"Sales Line",
-                         Database::"Sales Invoice Header", Database::"Sales Invoice Line",
-                         Database::"Sales Shipment Header", Database::"Sales Shipment Line",
-                         Database::Vendor, Database::"Purchase Header", Database::"Purchase Line",
-                         Database::"Purch. Inv. Header", Database::"Purch. Inv. Line",
-                         Database::"Purch. Rcpt. Header", Database::"Purch. Rcpt. Line",
-                         Database::"Item Ledger Entry", Database::"Value Entry",
-                         Database::"Cust. Ledger Entry", Database::"Detailed Cust. Ledg. Entry",
-                         Database::"Vendor Ledger Entry", Database::"Detailed Vendor Ledg. Entry",
-                         Database::"G/L Entry"]);
-    end;
 }

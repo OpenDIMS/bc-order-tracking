@@ -45,6 +45,22 @@ permissionset 85453 "OPENDIMS BOM"
         page "ODS BOM Components" = X;
 }
 
+permissionset 85488 "OPENDIMS TABLE DATA"
+{
+    Caption = 'OpenDIMS: read any table the client already has rights to', Locked = true;
+    Assignable = true;
+
+    // Deliberately grants no tabledata beyond this app's own buffer. What a
+    // client can read through tableRecords is exactly what the other permission
+    // sets it was granted let it read — this only opens the door.
+    Permissions =
+        tabledata "ODS Table Record" = RIMD,
+        tabledata "ODS Table Field" = RIMD,
+        page "ODS Table Records" = X,
+        page "ODS Table Fields" = X,
+        codeunit "ODS Field Reflection" = X;
+}
+
 permissionset 85485 "OPENDIMS LEDGERS"
 {
     Caption = 'OpenDIMS: item, customer, vendor and G/L entries (read)', Locked = true;

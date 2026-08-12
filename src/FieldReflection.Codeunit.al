@@ -24,12 +24,19 @@ codeunit 85455 "ODS Field Reflection"
     procedure DumpFields(RecordVariant: Variant): Text
     var
         RecRef: RecordRef;
+    begin
+        RecRef.GetTable(RecordVariant);
+        exit(DumpRecordRef(RecRef));
+    end;
+
+    /// <summary>Same, for a record already open as a RecordRef.</summary>
+    procedure DumpRecordRef(var RecRef: RecordRef): Text
+    var
         FldRef: FieldRef;
         Values: JsonObject;
         Result: Text;
         Index: Integer;
     begin
-        RecRef.GetTable(RecordVariant);
         for Index := 1 to RecRef.FieldCount() do begin
             FldRef := RecRef.FieldIndex(Index);
             if IsReadable(FldRef) then
@@ -62,6 +69,120 @@ codeunit 85455 "ODS Field Reflection"
                 InsertCatalogRow(TableNo, FldRef, Buffer);
         end;
         RecRef.Close();
+    end;
+
+    /// <summary>
+    /// Whether this API user may read a table at all. Virtual and system tables
+    /// are refused outright; for everything else Business Central's own
+    /// permissions decide, which is what keeps the generic endpoint honest.
+    /// </summary>
+    procedure IsReadableTable(TableNo: Integer): Boolean
+    var
+        RecRef: RecordRef;
+        Readable: Boolean;
+    begin
+        if (TableNo <= 0) or (TableNo >= 2000000000) then
+            exit(false);
+        if not TryOpen(TableNo, RecRef) then
+            exit(false);
+        Readable := RecRef.ReadPermission();
+        RecRef.Close();
+        exit(Readable);
+    end;
+
+    [TryFunction]
+    local procedure TryOpen(TableNo: Integer; var RecRef: RecordRef)
+    begin
+        RecRef.Open(TableNo);
+    end;
+
+    /// <summary>
+    /// Read a window of an arbitrary table into the buffer: one row per record,
+    /// every stored field dumped by number. Narrowing on a key field is how a
+    /// child table is tied to the record OpenDIMS already has.
+    /// </summary>
+    procedure ReadRecords(
+        TableNo: Integer;
+        KeyFieldNo: Integer;
+        KeyValues: Text;
+        SkipRows: Integer;
+        TakeRows: Integer;
+        ModifiedAfter: DateTime;
+        var Buffer: Record "ODS Table Record")
+    var
+        RecRef: RecordRef;
+        FldRef: FieldRef;
+        RowNo: Integer;
+    begin
+        // A page of 100 by default; 1000 is as much as one request may ask for,
+        // because every row costs a full field dump.
+        if TakeRows <= 0 then
+            TakeRows := 100;
+        if TakeRows > 1000 then
+            TakeRows := 1000;
+        if SkipRows < 0 then
+            SkipRows := 0;
+
+        if not TryOpen(TableNo, RecRef) then
+            exit;
+        if not RecRef.ReadPermission() then begin
+            RecRef.Close();
+            exit;
+        end;
+
+        if (KeyFieldNo > 0) and (KeyValues <> '') then begin
+            FldRef := RecRef.Field(KeyFieldNo);
+            // '|' is Business Central's own OR in a filter expression, which is
+            // why the caller separates values with it.
+            FldRef.SetFilter(KeyValues);
+        end;
+        if ModifiedAfter <> 0DT then begin
+            FldRef := RecRef.Field(RecRef.SystemModifiedAtNo());
+            FldRef.SetFilter('>%1', ModifiedAfter);
+        end;
+
+        if RecRef.FindSet() then begin
+            // Business Central has no OFFSET; skipping means walking.
+            if SkipRows > 0 then
+                if RecRef.Next(SkipRows) = 0 then begin
+                    RecRef.Close();
+                    exit;
+                end;
+            repeat
+                RowNo += 1;
+                Buffer.Init();
+                Buffer."Table No." := TableNo;
+                Buffer."Row No." := RowNo;
+                Buffer."Entry Key" := CopyStr(PrimaryKeyOf(RecRef), 1, MaxStrLen(Buffer."Entry Key"));
+                Buffer."System Id" := CopyStr(LowerCase(DelChr(Format(RecRef.Field(RecRef.SystemIdNo()).Value()), '=', '{}')), 1, MaxStrLen(Buffer."System Id"));
+                Buffer."Last Modified" := RecRef.Field(RecRef.SystemModifiedAtNo()).Value();
+                Buffer."Key Field No." := KeyFieldNo;
+                Buffer."Key Values" := CopyStr(KeyValues, 1, MaxStrLen(Buffer."Key Values"));
+                Buffer.Skip := SkipRows;
+                Buffer.Take := TakeRows;
+                Buffer."Modified After" := ModifiedAfter;
+                Buffer.SetFieldValues(DumpRecordRef(RecRef));
+                if Buffer.Insert() then;
+            until (RowNo >= TakeRows) or (RecRef.Next() = 0);
+        end;
+        RecRef.Close();
+    end;
+
+    /// The record's primary key fields, joined — enough to identify a row of a
+    /// table OpenDIMS knows nothing else about.
+    local procedure PrimaryKeyOf(var RecRef: RecordRef): Text
+    var
+        KeyRef: KeyRef;
+        Index: Integer;
+        Result: Text;
+    begin
+        KeyRef := RecRef.KeyIndex(1);
+        for Index := 1 to KeyRef.FieldCount() do begin
+            if Result <> '' then
+                Result += '|';
+            Result += Format(KeyRef.FieldIndex(Index).Value(), 0, 2);
+        end;
+        exit(Result);
     end;
 
     /// <summary>

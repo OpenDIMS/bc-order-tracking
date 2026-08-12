@@ -164,11 +164,37 @@ purchase invoice 100 + 8, its line 120 + 0, posted receipt 91 + 1, its line 126 
 These pages are extensible: another extension can add typed columns with a `pageextension`, and they show up in
 `$metadata` and in OpenDIMS' mapping alongside everything else.
 
+**Everything else** (permission set `OPENDIMS TABLE DATA`):
+
+- **`tableRecords`** — any table, by number. The endpoints above cover what OpenDIMS integrations use every day, with
+  proper columns and calculated fields; this covers the rest of Business Central on the same terms — every stored
+  field as a `fieldValues` dump, named by `tableFields`. Transfer orders, assembly headers, jobs, warehouse and bank
+  entries, fixed assets, contacts, dimensions: no new page, no new release.
+
+  The request travels as filters on the row: `tableNumber` (required), `keyFieldNo` + `keyValues` (optional — the
+  field holding a parent's key and the values to narrow to, `|`-separated, which is how a child table is tied to a
+  record OpenDIMS already has), `modifiedAfter` (use it for every run after the first), and `skip`/`take` (default
+  100, capped at 1000). Each row carries `entryKey` — the record's primary key rendered as text — plus `systemId` and
+  `lastModifiedDateTime`.
+
+  ```
+  GET …/tableRecords?$filter=tableNumber eq 5741 and keyFieldNo eq 1 and keyValues eq 'T-ORD-1|T-ORD-2'
+  ```
+
+  It reads **nothing the API user is not already allowed to read**. `OPENDIMS TABLE DATA` deliberately grants no
+  tabledata beyond this app's own buffers, so what a client reaches through it is exactly what the permission sets it
+  was granted let it reach; a table it has no rights to comes back empty rather than erroring. Grant it alongside a
+  standard Business Central read permission set when a customer wants the wide-open case.
+
+  Deep paging costs what it costs — Business Central has no `OFFSET`, so a large `skip` walks the rows it skips.
+  Narrow with `keyValues` or `modifiedAfter` in preference to paging far into a big table. Calculated (FlowField)
+  columns are not computed here: on an unknown table there is no telling what they cost.
+
 ## Permission sets
 
-The extension ships nine assignable, read-only permission sets — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
+The extension ships ten assignable, read-only permission sets — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
 `OPENDIMS BOM`, `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES`, `OPENDIMS VENDORS`, `OPENDIMS PURCHASES`,
-`OPENDIMS LEDGERS` — one per feature area. Assign only the set(s) matching the
+`OPENDIMS LEDGERS` and `OPENDIMS TABLE DATA` — one per feature area. Assign only the set(s) matching the
 channels a tenant actually runs to the API client (the Microsoft Entra app's BC user), so an
 integration that only reads tracking never has access to pricing or BOM data.
 
