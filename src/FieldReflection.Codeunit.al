@@ -320,12 +320,42 @@ codeunit 85455 "ODS Field Reflection"
                     else
                         Values.Add(FieldKey, LowerCase(DelChr(Format(GuidValue), '=', '{}')));
                 end;
+            FieldType::Option:
+                begin
+                    IntValue := FldRef.Value();
+                    AddText(Values, FieldKey, OptionMemberName(FldRef, IntValue));
+                end;
             else
-                // Text, Code, Option, DateFormula — format code 2 keeps option
-                // members and date formulas in their invariant Business Central
-                // spelling instead of the API user's display language.
+                // Text, Code, DateFormula — format code 2 keeps date formulas in
+                // their invariant Business Central spelling instead of the API
+                // user's display language.
                 AddText(Values, FieldKey, Format(FldRef.Value(), 0, 2));
         end;
+    end;
+
+    /// <summary>
+    /// The invariant name of an option or enum member.
+    /// </summary>
+    /// <remarks>
+    /// FieldRef.Value() on an option hands back the ordinal as an Integer, and
+    /// formatting an Integer only gives the number back — a BC 28.3 tenant sent
+    /// Costing Method as "2" and Replenishment System as "3" rather than
+    /// "Specific" and "Assembly". So the name is picked out of the member list
+    /// instead. Members may legitimately be blank (Item's Replenishment System
+    /// has a hole where Transfer used to sit), which reads as no value.
+    /// </remarks>
+    local procedure OptionMemberName(var FldRef: FieldRef; Ordinal: Integer): Text
+    var
+        Members: Text;
+        MemberCount: Integer;
+    begin
+        Members := FldRef.OptionMembers();
+        if Members = '' then
+            exit('');
+        MemberCount := StrLen(Members) - StrLen(DelChr(Members, '=', ',')) + 1;
+        if (Ordinal < 0) or (Ordinal >= MemberCount) then
+            exit('');
+        exit(SelectStr(Ordinal + 1, Members));
     end;
 
     local procedure AddText(var Values: JsonObject; FieldKey: Text; Value: Text)
