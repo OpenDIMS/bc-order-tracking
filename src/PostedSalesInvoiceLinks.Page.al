@@ -5,6 +5,10 @@
 /// and — through fieldValues — the other 115 fields a posted invoice carries that the
 /// standard v2.0 API does not publish. The table's own key is just "No.".
 ///
+/// The email-tracking flowfields ("Sent as Email", "Last Email Sent Time") are
+/// deliberately absent: they exist in BC 22's symbols but not on current cloud
+/// tenants, and publishing against them fails validation there.
+///
 /// Reachable at /api/opendims/integration/v1.0/companies({id})/salesInvoiceLinks
 /// once the extension is installed on the tenant.
 /// </summary>
@@ -81,8 +85,6 @@ page 85446 "ODS Sales Invoice Links"
                 field(cancelled; Rec.Cancelled) { Caption = 'cancelled', Locked = true; ApplicationArea = All; Editable = false; }
                 field(corrective; Rec.Corrective) { Caption = 'corrective', Locked = true; ApplicationArea = All; Editable = false; }
                 field(reversed; Rec.Reversed) { Caption = 'reversed', Locked = true; ApplicationArea = All; Editable = false; }
-                field(sentAsEmail; Rec."Sent as Email") { Caption = 'sentAsEmail', Locked = true; ApplicationArea = All; Editable = false; }
-                field(lastEmailSentTime; Rec."Last Email Sent Time") { Caption = 'lastEmailSentTime', Locked = true; ApplicationArea = All; Editable = false; }
                 field(hasComment; Rec.Comment) { Caption = 'hasComment', Locked = true; ApplicationArea = All; Editable = false; }
             }
         }
@@ -96,7 +98,7 @@ page 85446 "ODS Sales Invoice Links"
     begin
         Rec.CalcFields(
             Amount, "Amount Including VAT", "Remaining Amount", "Invoice Discount Amount",
-            Closed, Cancelled, Corrective, Reversed, "Sent as Email", "Last Email Sent Time", Comment);
+            Closed, Cancelled, Corrective, Reversed, Comment);
         FieldValuesJson := FieldReflection.DumpFields(Rec);
     end;
 }
