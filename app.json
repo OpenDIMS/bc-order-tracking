@@ -2,7 +2,7 @@
   "id": "7b3a8d20-2e8f-4d2e-9d2f-9a3c2e5d1f01",
   "name": "OpenDIMS Integration",
   "publisher": "OpenDIMS",
-  "version": "1.3.1.0",
+  "version": "1.3.2.0",
   "brief": "Exposes BC data OpenDIMS needs that the standard API does not cover.",
   "description": "Publishes read-only API endpoints for OpenDIMS: salesShipments and salesInvoiceLinks (shipment tracking), customerDiscountGroups, itemDiscountGroups and priceListLines (discount matrix sync), bomComponents (assembly BOM / composed products), odsItems and tableFields (every item field the standard API leaves out, including fields other extensions added to the item card), itemBomCosts (assembly BOM cost roll-up) itemStatistics (item ledger figures), odsCustomers and the sales documents open and posted, and the whole buying side — odsVendors, odsPurchaseDocuments and the posted purchase invoices and receipts, none of which Business Central's own API publishes at all — the ledgers (item, value, customer, vendor and G/L entries), and tableRecords — any table on the tenant by number, so data with no endpoint of its own is still reachable. Ships granular permission sets (OPENDIMS TRACKING / DISCOUNTS / BOM / ITEMS / CUSTOMERS / SALES / VENDORS / PURCHASES / LEDGERS / TABLE DATA) so each integration is granted only the data it uses.",
   "privacyStatement": "",
