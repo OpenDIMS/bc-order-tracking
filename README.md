@@ -6,12 +6,17 @@ A per-tenant AL extension that surfaces Business Central data OpenDIMS needs but
 
 Read-only API endpoints under `/api/opendims/integration/v1.0/companies({id})/`:
 
-**Shipment tracking** (permission set `OPENDIMS TRACKING`):
+**Posted documents** (permission set `OPENDIMS TRACKING`):
 
 - **`salesShipments`** — rows over Posted Sales Shipment Header. Fields:
-  `id, number, orderNumber, externalDocumentNumber, customerNumber, customerName, shipmentDate, packageTrackingNumber, shippingAgentCode, shippingAgentServiceCode, lastModifiedDateTime`.
+  `id, number, orderNumber, externalDocumentNumber, customerNumber, customerName, shipmentDate, packageTrackingNumber, shippingAgentCode, shippingAgentServiceCode, hasComment, lastModifiedDateTime`, plus `fieldValues` — the other ~100 fields of the shipment.
 - **`salesInvoiceLinks`** — rows over Posted Sales Invoice Header, exposing the link back to the source order. Fields:
-  `id, invoiceNumber, orderNumber, externalDocumentNumber, customerNumber, postingDate, lastModifiedDateTime`.
+  `id, invoiceNumber, orderNumber, externalDocumentNumber, customerNumber, postingDate, lastModifiedDateTime`, plus `fieldValues` and the invoice's calculated columns `amount, amountIncludingVat, remainingAmount, invoiceDiscountAmount, closed, cancelled, corrective, reversed, sentAsEmail, lastEmailSentTime, hasComment`.
+- **`postedSalesInvoiceLines`** — `id, documentNumber, lineNumber, itemNumber, fieldValues, lastModifiedDateTime`. This
+  table has no calculated columns at all, so the dump is the whole of it.
+- **`postedSalesShipmentLines`** — `id, documentNumber, lineNumber, itemNumber, orderNumber, orderLineNumber,
+  fieldValues, currencyCode, lastModifiedDateTime`. `orderNumber`/`orderLineNumber` link a shipped line back to the
+  order line it came from.
 
 OpenDIMS uses these endpoints to attach tracking data to imported documents:
 
@@ -32,10 +37,164 @@ OpenDIMS uses these endpoints to attach tracking data to imported documents:
   consists of other products: `id, parentItemNumber, lineNumber, type, number, description, quantityPer,
   unitOfMeasureCode, variantCode, position, lastModifiedDateTime`.
 
+**The whole record, not the API's slice** (permission sets `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES`):
+
+Standard API v2.0 publishes a fraction of what Business Central's tables hold, and almost everything it leaves out is
+ordinary Business Central — *Leverandørs varenr.*, *Kostpris (standard)*, *Vores kontonr.*, *Deres reference* — not
+something an add-on put there. These endpoints hand over the rest, and pick up any field another extension added on
+top for free.
+
+| Table | Fields | v2.0 API publishes | Endpoint |
+|---|---|---|---|
+| Item (27) | 220 | ~20 | `odsItems`, `itemBomCosts`, `itemStatistics` |
+| Customer (18) | 170 | ~25 | `odsCustomers` |
+| Sales Header (36) | 181 | ~30 | `odsSalesDocuments` |
+| Sales Line (37) | 193 | ~25 | `odsSalesDocumentLines` |
+| Sales Invoice Header (112) | 131 | ~30 | `salesInvoiceLinks` |
+| Sales Invoice Line (113) | 102 | ~25 | `postedSalesInvoiceLines` |
+| Sales Shipment Header (110) | 103 | none | `salesShipments` |
+| Sales Shipment Line (111) | 101 | none | `postedSalesShipmentLines` |
+| Vendor (23) | 141 | none | `odsVendors` |
+| Purchase Header (38) | 155 | none | `odsPurchaseDocuments` |
+| Purchase Line (39) | 210 | none | `odsPurchaseDocumentLines` |
+| Purch. Inv. Header (122) | 109 | ~20 (api/v1.0) | `postedPurchaseInvoices` |
+| Purch. Inv. Line (123) | 120 | none | `postedPurchaseInvoiceLines` |
+| Purch. Rcpt. Header (120) | 93 | none | `postedPurchaseReceipts` |
+| Purch. Rcpt. Line (121) | 127 | none | `postedPurchaseReceiptLines` |
+| Item Ledger Entry (32) | 81 | none | `itemLedgerEntries` |
+| Value Entry (5802) | 76 | none | `valueEntries` |
+| Cust. Ledger Entry (21) | 88 | none | `customerLedgerEntries` |
+| Detailed Cust. Ledg. Entry (379) | 38 | none | `detailedCustomerLedgerEntries` |
+| Vendor Ledger Entry (25) | 84 | none | `vendorLedgerEntries` |
+| Detailed Vendor Ledg. Entry (380) | 38 | none | `detailedVendorLedgerEntries` |
+| G/L Entry (17) | 65 | ~15 | `generalLedgerEntries` |
+
+- **`tableFields`** — the field catalogue: one row per readable field on those tables, *including the fields other
+  extensions added on this tenant*. Fields: `tableNumber, fieldNumber, fieldName, fieldCaption, elementName, dataType,
+  fieldClass, fieldLength, isCustom, optionMembers`. Built in memory from table metadata on every call, so a field
+  added by installing another extension shows up immediately. Filter it (`?$filter=tableNumber eq 18`) to describe one
+  table; unfiltered it describes all four, skipping any the API user has no read permission for. `isCustom` (field
+  number ≥ 50000) is a label for the reader, not a filter — every readable field is listed.
+- **`odsItems`** — the values: `id, number, displayName, fieldValues` plus the calculated columns
+  `assemblyBom, inventory, qtyOnPurchOrder, qtyOnSalesOrder, qtyOnAssemblyOrder, qtyOnAsmComponent, qtyOnJobOrder,
+  qtyInTransit, qtyOnPurchReturn, qtyOnSalesReturn, costIsPostedToGL, substitutesExist, stockkeepingUnitExists,
+  lastModifiedDateTime`.
+- **`itemBomCosts`** — `id, number, assemblyBom, componentCount, calculatedBomCost, standardCost, unitCost,
+  lastDirectCost, lastModifiedDateTime`. `calculatedBomCost` rolls the assembly BOM up again on the spot (components ×
+  quantity per × qty. per unit of measure, recursing into sub-assemblies) without writing anything back — BC's own
+  *Calculate Standard Cost* stores its result on the item, which an API GET must not do. Separate endpoint so only an
+  integration that maps it pays for the walk.
+- **`itemStatistics`** — what the item ledger says: `netChange, netInvoicedQty, purchasesQty, salesQty,
+  positiveAdjmtQty, negativeAdjmtQty, transferredQty, purchasesLcy, salesLcy, positiveAdjmtLcy, negativeAdjmtLcy,
+  transferredLcy, cogsLcy, reservedQtyOnInventory, reservedQtyOnSalesOrders, reservedQtyOnPurchOrders,
+  qtyAssignedToShip, qtyPicked, qtyOnServiceOrder, qtyOnProdOrder, qtyOnComponentLines, noOfSubstitutes,
+  lastPhysInvtDate, hasComment`. Unfiltered, these are the totals over the item's whole life. Separate endpoint for
+  the same reason as the BOM cost: every one of them is a calculated column BC has to work out per item.
+- **`odsCustomers`** — `id, number, displayName, fieldValues` plus the balances the customer card shows:
+  `balance, balanceLcy, balanceDue, balanceDueLcy, netChange, netChangeLcy, salesLcy, profitLcy, invAmountsLcy,
+  paymentsLcy, outstandingOrdersLcy, outstandingInvoicesLcy, shippedNotInvoicedLcy, hasComment,
+  lastModifiedDateTime`. These are sums over the customer ledger with a SIFT index behind them, cheap enough to sit on
+  the main page rather than on an endpoint of their own.
+- **`odsSalesDocuments`** — the *open* sales documents (Sales Header, not the posted ones): `id, documentType, number,
+  customerNumber, fieldValues` plus `amount, amountIncludingVat, invoiceDiscountAmount, shipped, completelyShipped,
+  shippedNotInvoiced, lastShipmentDate, lateOrderShipping, numberOfArchivedVersions, hasComment,
+  lastModifiedDateTime`. The table's key is (Document Type, No.), so `documentType` travels with every row and a
+  caller matching on the number alone must filter on it: `?$filter=documentType eq 'Order' and number in ('S-ORD-1')`.
+- **`odsSalesDocumentLines`** — `id, documentType, documentNumber, lineNumber, fieldValues` plus `reservedQuantity,
+  whseOutstandingQty, qtyToAssign, qtyAssigned, substitutionAvailable, postingDate, attachedDocCount,
+  lastModifiedDateTime`. `lineNumber` is the Sales Line's own *Line No.*, which is what the standard API calls
+  `sequence` on an order line — that pair is how OpenDIMS matches a line up.
+
+**The buying side** (permission sets `OPENDIMS VENDORS`, `OPENDIMS PURCHASES`) — where the standard API gives nothing
+at all, so these are the only route to any of it:
+
+- **`odsVendors`** — `id, number, displayName, fieldValues` plus the vendor ledger's `balance, balanceLcy, balanceDue,
+  balanceDueLcy, netChange, netChangeLcy, purchasesLcy, invAmountsLcy, paymentsLcy, outstandingOrders,
+  outstandingOrdersLcy, amtRcdNotInvoiced, amtRcdNotInvoicedLcy, hasComment, lastModifiedDateTime`.
+- **`odsPurchaseDocuments`** / **`odsPurchaseDocumentLines`** — the open purchase documents. Both tables are keyed by
+  document type, so `documentType` travels with every row and a caller filters on it
+  (`?$filter=documentType eq 'Order' and number in ('P-ORD-1')`). The header adds `amount, amountIncludingVat,
+  invoiceDiscountAmount, completelyReceived, partiallyInvoiced, amtRcdNotInvoicedLcy, numberOfArchivedVersions,
+  pendingApprovals, hasComment`; the line adds `reservedQuantity, qtyToAssign, qtyAssigned, attachedDocCount`.
+- **`postedPurchaseInvoices`** / **`postedPurchaseInvoiceLines`** — `number, vendorNumber, orderNumber, fieldValues`
+  plus `amount, amountIncludingVat, remainingAmount, invoiceDiscountAmount, closed, cancelled, corrective,
+  hasComment`. Microsoft publishes a `postedPurchaseInvoices` of its own on the older `api/v1.0` surface; this one is
+  under the `opendims` publisher and carries every field rather than a fixed subset. The line table has no calculated
+  columns, so its dump is the whole of it.
+- **`postedPurchaseReceipts`** / **`postedPurchaseReceiptLines`** — `number, vendorNumber, orderNumber, fieldValues,
+  hasComment`, and on the line `itemNumber, orderNumber, orderLineNumber, currencyCode` linking a received line back
+  to the order line it came from.
+
+**The ledgers** (permission set `OPENDIMS LEDGERS`) — what actually happened, rather than what a document says:
+
+- **`itemLedgerEntries`** — `entryNumber, itemNumber, postingDate, documentNumber, entryType, sourceNumber,
+  fieldValues` plus `costAmountActual, costAmountExpected, costAmountNonInvtbl, salesAmountActual,
+  salesAmountExpected, purchaseAmountActual, purchaseAmountExpected, reservedQuantity`.
+- **`valueEntries`** — where an item's cost history actually lives. Every amount on it is stored rather than
+  calculated, so the dump is the whole record; `itemLedgerEntryNumber` links it to the movement it values.
+- **`customerLedgerEntries`** / **`vendorLedgerEntries`** — `entryNumber, customerNumber` (or `vendorNumber`),
+  `postingDate, documentNumber, open, fieldValues` plus `amount, amountLcy, remainingAmount, remainingAmountLcy,
+  originalAmount, originalAmountLcy, debitAmount, creditAmount, debitAmountLcy, creditAmountLcy`.
+- **`detailedCustomerLedgerEntries`** / **`detailedVendorLedgerEntries`** — the applications, payments and
+  adjustments behind those balances. Nothing on them is calculated.
+- **`generalLedgerEntries`** — `entryNumber, accountNumber, accountName, postingDate, documentNumber, amount,
+  fieldValues`.
+
+All seven are keyed by a single `Entry No.`, so there are no lines and no document type — and they are the largest
+tables a company has. Every page names `postingDate` so a caller can bound its reads with it; the `Shortcut Dimension
+3-8` flowfields are deliberately *not* named, since almost no company uses them and each costs a lookup per row.
+
+`fieldValues` is a JSON object holding every readable, non-calculated field of the record **keyed by its Business
+Central field number** — `{"32":"2004210","24":19737.26,"50100":true}` is Vendor Item No., Standard Cost and a
+custom field. The number is the only part of a field that survives a rename and does not change with the display
+language, which is what keeps an OpenDIMS mapping stable. `tableFields.elementName` (`BCField_32_VendorItemNo`)
+names those numbers for the mapping UI. Empty values are sent as `null` so clearing a value in BC clears it in
+OpenDIMS too.
+
+Calculated (FlowField) columns cannot travel in `fieldValues` — BC has to compute each one per item — so the ones
+from the item card are named columns instead, and OpenDIMS asks for them with `$select` only when they are mapped.
+Of the Item table's 220 fields that leaves 139 in `fieldValues`, 13 named on `odsItems`, 24 on `itemStatistics`, 13
+flow *filters* that carry no data, and one `MediaSet` (the item picture). The rest are MRP planning internals —
+`Planning Receipt (Qty.)`, `Res. Qty. on Prod. Order Comp.` and the like — left out on purpose; add them to
+`itemStatistics` if a customer ever wants them. The same split on the other tables: Customer 98 dumped + 14 named,
+Sales Header 160 + 10, Sales Line 180 + 7, posted invoice 115 + 11, posted invoice line 102 + 0, posted shipment
+100 + 1, posted shipment line 100 + 1, Vendor 75 + 14, Purchase Header 141 + 9, Purchase Line 202 + 4, posted
+purchase invoice 100 + 8, its line 120 + 0, posted receipt 91 + 1, its line 126 + 1.
+
+These pages are extensible: another extension can add typed columns with a `pageextension`, and they show up in
+`$metadata` and in OpenDIMS' mapping alongside everything else.
+
+**Everything else** (permission set `OPENDIMS TABLE DATA`):
+
+- **`tableRecords`** — any table, by number. The endpoints above cover what OpenDIMS integrations use every day, with
+  proper columns and calculated fields; this covers the rest of Business Central on the same terms — every stored
+  field as a `fieldValues` dump, named by `tableFields`. Transfer orders, assembly headers, jobs, warehouse and bank
+  entries, fixed assets, contacts, dimensions: no new page, no new release.
+
+  The request travels as filters on the row: `tableNumber` (required), `keyFieldNo` + `keyValues` (optional — the
+  field holding a parent's key and the values to narrow to, `|`-separated, which is how a child table is tied to a
+  record OpenDIMS already has), `modifiedAfter` (use it for every run after the first), and `skip`/`take` (default
+  100, capped at 1000). Each row carries `entryKey` — the record's primary key rendered as text — plus `systemId` and
+  `lastModifiedDateTime`.
+
+  ```
+  GET …/tableRecords?$filter=tableNumber eq 5741 and keyFieldNo eq 1 and keyValues eq 'T-ORD-1|T-ORD-2'
+  ```
+
+  It reads **nothing the API user is not already allowed to read**. `OPENDIMS TABLE DATA` deliberately grants no
+  tabledata beyond this app's own buffers, so what a client reaches through it is exactly what the permission sets it
+  was granted let it reach; a table it has no rights to comes back empty rather than erroring. Grant it alongside a
+  standard Business Central read permission set when a customer wants the wide-open case.
+
+  Deep paging costs what it costs — Business Central has no `OFFSET`, so a large `skip` walks the rows it skips.
+  Narrow with `keyValues` or `modifiedAfter` in preference to paging far into a big table. Calculated (FlowField)
+  columns are not computed here: on an unknown table there is no telling what they cost.
+
 ## Permission sets
 
-The extension ships three assignable, read-only permission sets — `OPENDIMS TRACKING`,
-`OPENDIMS DISCOUNTS`, `OPENDIMS BOM` — one per feature area. Assign only the set(s) matching the
+The extension ships ten assignable, read-only permission sets — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
+`OPENDIMS BOM`, `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES`, `OPENDIMS VENDORS`, `OPENDIMS PURCHASES`,
+`OPENDIMS LEDGERS` and `OPENDIMS TABLE DATA` — one per feature area. Assign only the set(s) matching the
 channels a tenant actually runs to the API client (the Microsoft Entra app's BC user), so an
 integration that only reads tracking never has access to pricing or BOM data.
 
@@ -148,7 +307,9 @@ After install, in OpenDIMS' BusinessCentralOrdersImport connector, switch **"Use
   hands out by default — and collided with another partner app on a customer tenant (`The application object of type
   'Page' with the ID '50101' is defined in multiple apps`). Never move back into the low `50000-50999` block, and if
   this ever ships on AppSource, request a dedicated range from Microsoft.
-- Renumbering objects is safe for this extension because it contains no tables or table extensions: endpoint URLs come
-  from `APIPublisher`/`APIGroup`/`APIVersion`/`EntitySetName`, and permission set assignments are keyed by name, not by
-  object id. Keep the `app.json` GUID and BC treats a renumbered build as a normal upgrade.
+- Renumbering objects is safe for this extension: endpoint URLs come from
+  `APIPublisher`/`APIGroup`/`APIVersion`/`EntitySetName`, and permission set assignments are keyed by name, not by
+  object id. Keep the `app.json` GUID and BC treats a renumbered build as a normal upgrade. The one table it owns
+  (`ODS Table Field`) is only ever used as a temporary record and never holds a row in the tenant's database, and
+  there are no table extensions, so no customer data rides on an object id.
 - The extension is **read-only**: it doesn't write to BC, only exposes data. Uninstalling it is reversible.
