@@ -40,6 +40,13 @@ page 85450 "ODS Price List Lines"
                 field(amountType; Rec."Amount Type") { Caption = 'amountType', Locked = true; ApplicationArea = All; Editable = false; }
                 field(unitPrice; Rec."Unit Price") { Caption = 'unitPrice', Locked = true; ApplicationArea = All; Editable = false; }
                 field(lineDiscountPercent; Rec."Line Discount %") { Caption = 'lineDiscountPercent', Locked = true; ApplicationArea = All; Editable = false; }
+                // Whether this price may have other discounts applied on top of
+                // it. A webshop keeps the same idea on its product discount —
+                // Hostedshop calls it Accumulate — so without these two the
+                // setting cannot be synced at all on a tenant using modern
+                // pricing. Plain stored Booleans on 7001, fields 21 and 22.
+                field(allowLineDisc; Rec."Allow Line Disc.") { Caption = 'allowLineDisc', Locked = true; ApplicationArea = All; Editable = false; }
+                field(allowInvoiceDisc; Rec."Allow Invoice Disc.") { Caption = 'allowInvoiceDisc', Locked = true; ApplicationArea = All; Editable = false; }
                 field(currencyCode; Rec."Currency Code") { Caption = 'currencyCode', Locked = true; ApplicationArea = All; Editable = false; }
                 field(startingDate; Rec."Starting Date") { Caption = 'startingDate', Locked = true; ApplicationArea = All; Editable = false; }
                 field(endingDate; Rec."Ending Date") { Caption = 'endingDate', Locked = true; ApplicationArea = All; Editable = false; }

@@ -89,7 +89,21 @@ page 85445 "ODS Posted Sales Shipments"
                     ApplicationArea = All;
                     Editable = false;
                 }
+                // Every normal field of the posted shipment, keyed by field
+                // number — the other 100 the tracking fields above sit among.
+                field(fieldValues; FieldValuesJson) { Caption = 'fieldValues', Locked = true; ApplicationArea = All; Editable = false; }
+                field(hasComment; Rec.Comment) { Caption = 'hasComment', Locked = true; ApplicationArea = All; Editable = false; }
             }
         }
     }
+
+    var
+        FieldReflection: Codeunit "ODS Field Reflection";
+        FieldValuesJson: Text;
+
+    trigger OnAfterGetRecord()
+    begin
+        Rec.CalcFields(Comment);
+        FieldValuesJson := FieldReflection.DumpFields(Rec);
+    end;
 }
