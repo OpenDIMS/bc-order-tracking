@@ -42,6 +42,15 @@ permissionset 85453 "OPENDIMS BOM"
 
     Permissions =
         tabledata "BOM Component" = R,
+        // Gross requirement sums demand from each of these. A missing one
+        // does not fail the call, it silently drops that part of the demand.
+        tabledata "Sales Line" = R,
+        tabledata "Service Line" = R,
+        tabledata "Job Planning Line" = R,
+        tabledata "Prod. Order Component" = R,
+        tabledata "Planning Component" = R,
+        tabledata "Assembly Line" = R,
+        tabledata "Purchase Line" = R,
         page "ODS BOM Components" = X;
 }
 
@@ -162,11 +171,21 @@ permissionset 85460 "OPENDIMS ITEMS"
         tabledata "Item Unit of Measure" = R,
         tabledata Resource = R,
         tabledata "BOM Component" = R,
+        // Gross requirement sums demand from each of these. A missing one
+        // does not fail the call, it silently drops that part of the demand.
+        tabledata "Sales Line" = R,
+        tabledata "Service Line" = R,
+        tabledata "Job Planning Line" = R,
+        tabledata "Prod. Order Component" = R,
+        tabledata "Planning Component" = R,
+        tabledata "Assembly Line" = R,
+        tabledata "Purchase Line" = R,
         tabledata "ODS Table Field" = RIMD,
         page "ODS Items" = X,
         page "ODS Table Fields" = X,
         page "ODS Item BOM Costs" = X,
         page "ODS Item Statistics" = X,
+        page "ODS Item Availability" = X,
         codeunit "ODS Field Reflection" = X,
         codeunit "ODS BOM Cost" = X;
 }
