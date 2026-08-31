@@ -169,6 +169,13 @@ permissionset 85460 "OPENDIMS ITEMS"
     Permissions =
         tabledata Item = R,
         tabledata "Item Unit of Measure" = R,
+        // Product specifications — "Effekt (watt)", "Panelgaranti" — are item
+        // attributes rather than fields on the item, spread over three tables.
+        // Read-only, like everything else here: OpenDIMS reads specifications
+        // from Business Central, it does not write them back.
+        tabledata "Item Attribute" = R,
+        tabledata "Item Attribute Value" = R,
+        tabledata "Item Attribute Value Mapping" = R,
         tabledata Resource = R,
         tabledata "BOM Component" = R,
         // Gross requirement sums demand from each of these. A missing one
@@ -182,6 +189,8 @@ permissionset 85460 "OPENDIMS ITEMS"
         tabledata "Purchase Line" = R,
         tabledata "ODS Table Field" = RIMD,
         page "ODS Items" = X,
+        page "ODS Item Attributes" = X,
+        page "ODS Item Attribute Values" = X,
         page "ODS Table Fields" = X,
         page "ODS Item BOM Costs" = X,
         page "ODS Item Statistics" = X,
