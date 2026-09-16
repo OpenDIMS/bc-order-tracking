@@ -22,7 +22,15 @@
 [CmdletBinding()]
 param(
     [string]$OutputFolder = (Join-Path $PSScriptRoot 'out'),
-    [string]$BcVersion = ''
+    [string]$BcVersion = '',
+    # The AL Language extension (compiler) package to compile with. Pinned to the
+    # package the 2026-09-02 build used: BcContainerHelper 6.1.14 reads
+    # compiler/extension/bin/System.Collections.Immutable.dll out of it, and the
+    # marketplace's 18.0.27xx packages (from 2026-09-10) no longer ship that file
+    # there, so 'latest' broke every build — locally and on GitHub — with
+    # "Could not find file '...bin/System.Collections.Immutable.dll'". Move it
+    # together with the BcContainerHelper pin above, after a green build.
+    [string]$AlVsixUrl = 'https://ms-dynamics-smb.gallerycdn.vsassets.io/extensions/ms-dynamics-smb/al/17.0.2273547/1775038511382/Microsoft.VisualStudio.Services.VSIXPackage'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -96,13 +104,15 @@ Write-Host "==> Using compile cmdlet: $compileCmd"
 $artifactUrl = Get-BCArtifactUrl -type Sandbox -country w1 -version $BcVersion -select Latest
 Write-Host "==> Using artifact URL: $artifactUrl"
 
-# vsixFile 'latest' pulls the newest AL Language extension from the VS
-# marketplace instead of the artifact's own vsix. Required on Linux/macOS for
-# BC 22.0 artifacts: their bundled vsix ships only a Windows .NET-Framework
-# alc.exe (no bin/linux/, no portable alc.dll), so compiles die with
-# "Cannot find path '.../compiler/extension/bin/alc.dll'". Newer AL compilers
-# compile older-runtime apps fine.
-$compilerFolder = New-BcCompilerFolder -artifactUrl $artifactUrl -vsixFile 'latest'
+# A marketplace AL Language package is used instead of the artifact's own vsix.
+# Required on Linux/macOS for BC 22.0 artifacts: their bundled vsix ships only a
+# Windows .NET-Framework alc.exe (no bin/linux/, no portable alc.dll), so
+# compiles die with "Cannot find path '.../compiler/extension/bin/alc.dll'".
+# Newer AL compilers compile older-runtime apps fine — but which package is
+# pinned ($AlVsixUrl), not 'latest', because a new package layout took the
+# build down on 2026-09-16 (see the parameter's comment).
+Write-Host "==> Using AL compiler package: $AlVsixUrl"
+$compilerFolder = New-BcCompilerFolder -artifactUrl $artifactUrl -vsixFile $AlVsixUrl
 
 try {
     $appFile = & $compileCmd `
