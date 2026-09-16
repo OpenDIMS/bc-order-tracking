@@ -15,6 +15,11 @@ codeunit 85455 "ODS Field Reflection"
     var
         ElementPrefixTok: Label 'BCField_', Locked = true;
         AllowedNameCharsTok: Label 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', Locked = true;
+        NotAJsonObjectErr: Label 'setFieldValues must be a JSON object keyed by field number.';
+        NotAFieldNumberErr: Label 'The key "%1" in setFieldValues is not a field number.', Comment = '%1 = the key';
+        NoSuchFieldErr: Label 'Field %1 does not exist on table %2.', Comment = '%1 = field number, %2 = table number';
+        NotWritableErr: Label 'Field %1 (%2) cannot be written through setFieldValues: only normal fields of the plain data types can.', Comment = '%1 = field name, %2 = field number';
+        BadValueErr: Label 'The value "%1" is not valid for field %2.', Comment = '%1 = the value, %2 = field name';
 
     /// <summary>
     /// Dump every readable, normal (non-calculated) field of a record as a JSON
@@ -44,6 +49,163 @@ codeunit 85455 "ODS Field Reflection"
         end;
         Values.WriteTo(Result);
         exit(Result);
+    end;
+
+    /// <summary>
+    /// Write values into a record from a JSON object keyed by field number — the
+    /// same shape DumpFields produces — validating each through the field's own
+    /// OnValidate. Only normal fields of the readable types are accepted; a key
+    /// naming anything else, or a value the field refuses, raises an error the
+    /// API caller sees as a 400 with the message.
+    /// </summary>
+    procedure ApplyFields(var RecRef: RecordRef; ValuesJson: Text)
+    var
+        Values: JsonObject;
+        Keys: List of [Text];
+        FieldKey: Text;
+        FieldNo: Integer;
+        Token: JsonToken;
+        FldRef: FieldRef;
+    begin
+        if ValuesJson = '' then
+            exit;
+        if not Values.ReadFrom(ValuesJson) then
+            Error(NotAJsonObjectErr);
+        Keys := Values.Keys();
+        foreach FieldKey in Keys do begin
+            if not Evaluate(FieldNo, FieldKey) then
+                Error(NotAFieldNumberErr, FieldKey);
+            if not RecRef.FieldExist(FieldNo) then
+                Error(NoSuchFieldErr, FieldNo, RecRef.Number());
+            FldRef := RecRef.Field(FieldNo);
+            if not IsReadable(FldRef) then
+                Error(NotWritableErr, FldRef.Name(), FieldNo);
+            Values.Get(FieldKey, Token);
+            SetFieldValue(FldRef, Token);
+        end;
+    end;
+
+    local procedure SetFieldValue(var FldRef: FieldRef; Token: JsonToken)
+    var
+        TextValue: Text;
+        BoolValue: Boolean;
+        IntValue: Integer;
+        BigIntValue: BigInteger;
+        DecValue: Decimal;
+        DateValue: Date;
+        TimeValue: Time;
+        DateTimeValue: DateTime;
+        GuidValue: Guid;
+        DateFormulaValue: DateFormula;
+        Ordinal: Integer;
+    begin
+        if Token.AsValue().IsNull() then begin
+            ClearFieldValue(FldRef);
+            exit;
+        end;
+        case FldRef.Type() of
+            FieldType::Boolean:
+                begin
+                    // AsText() reads a JSON true/false as "true"/"false" and a string as itself.
+                    TextValue := Token.AsValue().AsText();
+                    BoolValue := TextValue in ['1', 'true', 'True', 'TRUE', 'yes', 'Yes'];
+                    FldRef.Validate(BoolValue);
+                end;
+            FieldType::Integer:
+                begin
+                    if not Evaluate(IntValue, Token.AsValue().AsText(), 9) then
+                        Error(BadValueErr, Token.AsValue().AsText(), FldRef.Name());
+                    FldRef.Validate(IntValue);
+                end;
+            FieldType::BigInteger:
+                begin
+                    if not Evaluate(BigIntValue, Token.AsValue().AsText(), 9) then
+                        Error(BadValueErr, Token.AsValue().AsText(), FldRef.Name());
+                    FldRef.Validate(BigIntValue);
+                end;
+            FieldType::Decimal:
+                begin
+                    if not Evaluate(DecValue, Token.AsValue().AsText(), 9) then
+                        Error(BadValueErr, Token.AsValue().AsText(), FldRef.Name());
+                    FldRef.Validate(DecValue);
+                end;
+            FieldType::Date:
+                begin
+                    if not Evaluate(DateValue, Token.AsValue().AsText(), 9) then
+                        Error(BadValueErr, Token.AsValue().AsText(), FldRef.Name());
+                    FldRef.Validate(DateValue);
+                end;
+            FieldType::Time:
+                begin
+                    if not Evaluate(TimeValue, Token.AsValue().AsText(), 9) then
+                        Error(BadValueErr, Token.AsValue().AsText(), FldRef.Name());
+                    FldRef.Validate(TimeValue);
+                end;
+            FieldType::DateTime:
+                begin
+                    if not Evaluate(DateTimeValue, Token.AsValue().AsText(), 9) then
+                        Error(BadValueErr, Token.AsValue().AsText(), FldRef.Name());
+                    FldRef.Validate(DateTimeValue);
+                end;
+            FieldType::GUID:
+                begin
+                    if not Evaluate(GuidValue, Token.AsValue().AsText()) then
+                        Error(BadValueErr, Token.AsValue().AsText(), FldRef.Name());
+                    FldRef.Validate(GuidValue);
+                end;
+            FieldType::DateFormula:
+                begin
+                    // Angle-bracketed formulas are language-independent, so no format code is needed.
+                    if not Evaluate(DateFormulaValue, Token.AsValue().AsText()) then
+                        Error(BadValueErr, Token.AsValue().AsText(), FldRef.Name());
+                    FldRef.Validate(DateFormulaValue);
+                end;
+            FieldType::Option:
+                begin
+                    // Either the member's invariant name, as DumpFields writes it, or its ordinal.
+                    TextValue := Token.AsValue().AsText();
+                    Ordinal := OptionOrdinal(FldRef, TextValue);
+                    if Ordinal < 0 then
+                        Error(BadValueErr, TextValue, FldRef.Name());
+                    FldRef.Validate(Ordinal);
+                end;
+            else begin
+                // Text and Code. Too long is refused by BC with its own message rather
+                // than cut short here — a caller should know its value did not fit.
+                TextValue := Token.AsValue().AsText();
+                FldRef.Validate(TextValue);
+            end;
+        end;
+    end;
+
+    local procedure ClearFieldValue(var FldRef: FieldRef)
+    var
+        EmptyRecRef: RecordRef;
+        EmptyFldRef: FieldRef;
+    begin
+        // The field's own blank: open a fresh record of the same table and copy
+        // the untouched value across, so every type clears to what BC calls empty.
+        EmptyRecRef.Open(FldRef.Record().Number());
+        EmptyRecRef.Init();
+        EmptyFldRef := EmptyRecRef.Field(FldRef.Number());
+        FldRef.Validate(EmptyFldRef.Value());
+    end;
+
+    local procedure OptionOrdinal(var FldRef: FieldRef; Value: Text): Integer
+    var
+        Members: Text;
+        MemberCount: Integer;
+        Index: Integer;
+        Ordinal: Integer;
+    begin
+        Members := FldRef.OptionMembers();
+        MemberCount := StrLen(Members) - StrLen(DelChr(Members, '=', ',')) + 1;
+        for Index := 1 to MemberCount do
+            if SelectStr(Index, Members) = Value then
+                exit(Index - 1);
+        if Evaluate(Ordinal, Value) and (Ordinal >= 0) and (Ordinal < MemberCount) then
+            exit(Ordinal);
+        exit(-1);
     end;
 
     /// <summary>

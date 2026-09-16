@@ -1,14 +1,28 @@
-// Read-only API pages over Sales Header (36) and Sales Line (37) — the open
-// sales documents, not the posted ones. Standard API v2.0 publishes about 30 of
-// the header's 181 fields and 25 of the line's 193; the rest travel in
-// fieldValues keyed by Business Central field number, named by the tableFields
-// endpoint (?$filter=tableNumber eq 36 / 37).
+// API pages over Sales Header (36) and Sales Line (37) — the open sales
+// documents, not the posted ones. Standard API v2.0 publishes about 30 of the
+// header's 181 fields and 25 of the line's 193; the rest travel in fieldValues
+// keyed by Business Central field number, named by the tableFields endpoint
+// (?$filter=tableNumber eq 36 / 37).
 //
 // Sales Header's primary key is (Document Type, No.), so documentType travels
 // with every row and a caller matching on number alone must filter on it:
 //
 // GET …/odsSalesDocuments?$filter=documentType eq 'Order' and number in ('S-ORD-1')
 // GET …/odsSalesDocumentLines?$filter=documentType eq 'Order' and documentNumber in ('S-ORD-1')
+//
+// The header can also be written to, which is how OpenDIMS fills in what the
+// standard salesOrders API has no property for — the Work Description, and any
+// normal field on the document, including ones another extension added. No
+// field is named here: the caller says which by number, the tableFields
+// endpoint having told it the numbers.
+//
+// PATCH …/odsSalesDocuments(<systemId>)   If-Match: *
+//   {"workDescription": "Leave at the back door", "setFieldValues": "{\"22\": \"Web order 1604\"}"}
+//
+// setFieldValues is a JSON object keyed by field number, the same shape
+// fieldValues is read in; each value is validated through the field's own
+// OnValidate. The document itself is never created or deleted here — the
+// standard API does that.
 page 85463 "ODS Sales Documents"
 {
     PageType = API;
@@ -21,7 +35,9 @@ page 85463 "ODS Sales Documents"
     SourceTable = "Sales Header";
     DelayedInsert = true;
     ODataKeyFields = SystemId;
-    Editable = false;
+    InsertAllowed = false;
+    DeleteAllowed = false;
+    ModifyAllowed = true;
 
     layout
     {
@@ -47,6 +63,11 @@ page 85463 "ODS Sales Documents"
                 field(numberOfArchivedVersions; Rec."No. of Archived Versions") { Caption = 'numberOfArchivedVersions', Locked = true; ApplicationArea = All; Editable = false; }
                 field(hasComment; Rec.Comment) { Caption = 'hasComment', Locked = true; ApplicationArea = All; Editable = false; }
                 field(lastModifiedDateTime; Rec.SystemModifiedAt) { Caption = 'lastModifiedDateTime', Locked = true; ApplicationArea = All; Editable = false; }
+                // The Work Description BLOB, readable and writable as plain text. The
+                // field dump skips BLOBs, so without this the note never left BC.
+                field(workDescription; WorkDescriptionText) { Caption = 'workDescription', Locked = true; ApplicationArea = All; }
+                // Write-only: a JSON object keyed by field number, applied on PATCH.
+                field(setFieldValues; SetFieldValuesJson) { Caption = 'setFieldValues', Locked = true; ApplicationArea = All; }
             }
         }
     }
@@ -54,6 +75,8 @@ page 85463 "ODS Sales Documents"
     var
         FieldReflection: Codeunit "ODS Field Reflection";
         FieldValuesJson: Text;
+        WorkDescriptionText: Text;
+        SetFieldValuesJson: Text;
 
     trigger OnAfterGetRecord()
     begin
@@ -62,6 +85,25 @@ page 85463 "ODS Sales Documents"
             "Completely Shipped", "Shipped Not Invoiced", "Last Shipment Date",
             "Late Order Shipping", "No. of Archived Versions", Comment);
         FieldValuesJson := FieldReflection.DumpFields(Rec);
+        WorkDescriptionText := Rec.GetWorkDescription();
+        SetFieldValuesJson := '';
+    end;
+
+    trigger OnModifyRecord(): Boolean
+    var
+        RecRef: RecordRef;
+    begin
+        if SetFieldValuesJson <> '' then begin
+            RecRef.GetTable(Rec);
+            FieldReflection.ApplyFields(RecRef, SetFieldValuesJson);
+            RecRef.SetTable(Rec);
+        end;
+        if WorkDescriptionText <> Rec.GetWorkDescription() then
+            Rec.SetWorkDescription(WorkDescriptionText);
+        Rec.Modify(true);
+        // The record is written above; returning false stops the platform from
+        // writing the pre-validation copy over it.
+        exit(false);
     end;
 }
 

@@ -4,7 +4,8 @@ A per-tenant AL extension that surfaces Business Central data OpenDIMS needs but
 
 ## What it adds
 
-Read-only API endpoints under `/api/opendims/integration/v1.0/companies({id})/`:
+API endpoints under `/api/opendims/integration/v1.0/companies({id})/` — read-only, except that the open sales document
+header accepts a PATCH (see `odsSalesDocuments`):
 
 **Posted documents** (permission set `OPENDIMS TRACKING`):
 
@@ -98,8 +99,13 @@ top for free.
 - **`odsSalesDocuments`** — the *open* sales documents (Sales Header, not the posted ones): `id, documentType, number,
   customerNumber, fieldValues` plus `amount, amountIncludingVat, invoiceDiscountAmount, shipped, completelyShipped,
   shippedNotInvoiced, lastShipmentDate, lateOrderShipping, numberOfArchivedVersions, hasComment,
-  lastModifiedDateTime`. The table's key is (Document Type, No.), so `documentType` travels with every row and a
+  lastModifiedDateTime, workDescription`. The table's key is (Document Type, No.), so `documentType` travels with every row and a
   caller matching on the number alone must filter on it: `?$filter=documentType eq 'Order' and number in ('S-ORD-1')`.
+  Since 1.5.0 the header also takes a **PATCH** (`If-Match: *`), which is how the OpenDIMS order export fills in what the
+  standard `salesOrders` API has no property for: `workDescription` (the Work Description BLOB, as text) and
+  `setFieldValues` — a JSON object keyed by field number, the same shape `fieldValues` is read in, each value validated
+  through the field's own OnValidate. Only normal fields of the plain data types can be written; the document itself
+  is still created and deleted through the standard API.
 - **`odsSalesDocumentLines`** — `id, documentType, documentNumber, lineNumber, fieldValues` plus `reservedQuantity,
   whseOutstandingQty, qtyToAssign, qtyAssigned, substitutionAvailable, postingDate, attachedDocCount,
   lastModifiedDateTime`. `lineNumber` is the Sales Line's own *Line No.*, which is what the standard API calls
@@ -192,7 +198,8 @@ These pages are extensible: another extension can add typed columns with a `page
 
 ## Permission sets
 
-The extension ships ten assignable, read-only permission sets — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
+The extension ships ten assignable permission sets — read-only apart from `OPENDIMS SALES`, which carries Modify on
+the sales header for the PATCH above — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
 `OPENDIMS BOM`, `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES`, `OPENDIMS VENDORS`, `OPENDIMS PURCHASES`,
 `OPENDIMS LEDGERS` and `OPENDIMS TABLE DATA` — one per feature area. Assign only the set(s) matching the
 channels a tenant actually runs to the API client (the Microsoft Entra app's BC user), so an
@@ -312,4 +319,5 @@ After install, in OpenDIMS' BusinessCentralOrdersImport connector, switch **"Use
   object id. Keep the `app.json` GUID and BC treats a renumbered build as a normal upgrade. The one table it owns
   (`ODS Table Field`) is only ever used as a temporary record and never holds a row in the tenant's database, and
   there are no table extensions, so no customer data rides on an object id.
-- The extension is **read-only**: it doesn't write to BC, only exposes data. Uninstalling it is reversible.
+- The extension is **read-only** with one exception: a PATCH to `odsSalesDocuments` writes the Work Description and
+  named fields of an open sales header, and only that. Uninstalling it is reversible.
