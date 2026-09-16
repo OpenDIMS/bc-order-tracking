@@ -5,7 +5,7 @@ A per-tenant AL extension that surfaces Business Central data OpenDIMS needs but
 ## What it adds
 
 API endpoints under `/api/opendims/integration/v1.0/companies({id})/` — read-only, except that the open sales document
-header accepts a PATCH (see `odsSalesDocuments`):
+header and lines and the customer accept a PATCH (see `odsSalesDocuments` and `odsCustomers`):
 
 **Posted documents** (permission set `OPENDIMS TRACKING`):
 
@@ -96,6 +96,10 @@ top for free.
   paymentsLcy, outstandingOrdersLcy, outstandingInvoicesLcy, shippedNotInvoicedLcy, hasComment,
   lastModifiedDateTime`. These are sums over the customer ledger with a SIFT index behind them, cheap enough to sit on
   the main page rather than on an endpoint of their own.
+  Since 1.5.0 the customer also takes a **PATCH** (`If-Match: *`) with `setFieldValues` — a JSON object keyed by
+  field number, validated through each field's own OnValidate — which is how the OpenDIMS customer and order exports
+  fill in what the standard `customers` API has no property for. Customers are still created through that API.
+
 - **`odsSalesDocuments`** — the *open* sales documents (Sales Header, not the posted ones): `id, documentType, number,
   customerNumber, fieldValues` plus `amount, amountIncludingVat, invoiceDiscountAmount, shipped, completelyShipped,
   shippedNotInvoiced, lastShipmentDate, lateOrderShipping, numberOfArchivedVersions, hasComment,
@@ -199,8 +203,8 @@ These pages are extensible: another extension can add typed columns with a `page
 
 ## Permission sets
 
-The extension ships ten assignable permission sets — read-only apart from `OPENDIMS SALES`, which carries Modify on
-the sales header and line for the PATCHes above — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
+The extension ships ten assignable permission sets — read-only apart from `OPENDIMS SALES` (Modify on the sales header
+and line) and `OPENDIMS CUSTOMERS` (Modify on the customer), for the PATCHes above — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
 `OPENDIMS BOM`, `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES`, `OPENDIMS VENDORS`, `OPENDIMS PURCHASES`,
 `OPENDIMS LEDGERS` and `OPENDIMS TABLE DATA` — one per feature area. Assign only the set(s) matching the
 channels a tenant actually runs to the API client (the Microsoft Entra app's BC user), so an
@@ -320,5 +324,6 @@ After install, in OpenDIMS' BusinessCentralOrdersImport connector, switch **"Use
   object id. Keep the `app.json` GUID and BC treats a renumbered build as a normal upgrade. The one table it owns
   (`ODS Table Field`) is only ever used as a temporary record and never holds a row in the tenant's database, and
   there are no table extensions, so no customer data rides on an object id.
-- The extension is **read-only** with one exception: a PATCH to `odsSalesDocuments` / `odsSalesDocumentLines` writes
-  the Work Description and named fields of an open sales header or line, and only that. Uninstalling it is reversible.
+- The extension is **read-only** with one exception: a PATCH to `odsSalesDocuments` / `odsSalesDocumentLines` /
+  `odsCustomers` writes the Work Description and named fields of an open sales header, a line or a customer, and only
+  that. Uninstalling it is reversible.
