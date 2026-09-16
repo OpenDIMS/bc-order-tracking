@@ -10,14 +10,16 @@
 // GET …/odsSalesDocuments?$filter=documentType eq 'Order' and number in ('S-ORD-1')
 // GET …/odsSalesDocumentLines?$filter=documentType eq 'Order' and documentNumber in ('S-ORD-1')
 //
-// The header can also be written to, which is how OpenDIMS fills in what the
-// standard salesOrders API has no property for — the Work Description, and any
-// normal field on the document, including ones another extension added. No
-// field is named here: the caller says which by number, the tableFields
-// endpoint having told it the numbers.
+// The header and the lines can also be written to, which is how OpenDIMS fills
+// in what the standard salesOrders API has no property for — the Work
+// Description, and any normal field on the document or a line, including ones
+// another extension added. No field is named here: the caller says which by
+// number, the tableFields endpoint having told it the numbers.
 //
 // PATCH …/odsSalesDocuments(<systemId>)   If-Match: *
 //   {"workDescription": "Leave at the back door", "setFieldValues": "{\"22\": \"Web order 1604\"}"}
+// PATCH …/odsSalesDocumentLines(<systemId>)   If-Match: *
+//   {"setFieldValues": "{\"5701\": \"WEB\"}"}
 //
 // setFieldValues is a JSON object keyed by field number, the same shape
 // fieldValues is read in; each value is validated through the field's own
@@ -119,7 +121,9 @@ page 85464 "ODS Sales Document Lines"
     SourceTable = "Sales Line";
     DelayedInsert = true;
     ODataKeyFields = SystemId;
-    Editable = false;
+    InsertAllowed = false;
+    DeleteAllowed = false;
+    ModifyAllowed = true;
 
     layout
     {
@@ -142,6 +146,8 @@ page 85464 "ODS Sales Document Lines"
                 field(postingDate; Rec."Posting Date") { Caption = 'postingDate', Locked = true; ApplicationArea = All; Editable = false; }
                 field(attachedDocCount; Rec."Attached Doc Count") { Caption = 'attachedDocCount', Locked = true; ApplicationArea = All; Editable = false; }
                 field(lastModifiedDateTime; Rec.SystemModifiedAt) { Caption = 'lastModifiedDateTime', Locked = true; ApplicationArea = All; Editable = false; }
+                // Write-only: a JSON object keyed by field number, applied on PATCH.
+                field(setFieldValues; SetFieldValuesJson) { Caption = 'setFieldValues', Locked = true; ApplicationArea = All; }
             }
         }
     }
@@ -149,6 +155,7 @@ page 85464 "ODS Sales Document Lines"
     var
         FieldReflection: Codeunit "ODS Field Reflection";
         FieldValuesJson: Text;
+        SetFieldValuesJson: Text;
 
     trigger OnAfterGetRecord()
     begin
@@ -156,5 +163,21 @@ page 85464 "ODS Sales Document Lines"
             "Reserved Quantity", "Whse. Outstanding Qty.", "Qty. to Assign",
             "Qty. Assigned", "Substitution Available", "Posting Date", "Attached Doc Count");
         FieldValuesJson := FieldReflection.DumpFields(Rec);
+        SetFieldValuesJson := '';
+    end;
+
+    trigger OnModifyRecord(): Boolean
+    var
+        RecRef: RecordRef;
+    begin
+        if SetFieldValuesJson <> '' then begin
+            RecRef.GetTable(Rec);
+            FieldReflection.ApplyFields(RecRef, SetFieldValuesJson);
+            RecRef.SetTable(Rec);
+        end;
+        Rec.Modify(true);
+        // Written above; returning false stops the platform from writing the
+        // pre-validation copy over it.
+        exit(false);
     end;
 }
