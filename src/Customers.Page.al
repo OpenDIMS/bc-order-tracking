@@ -21,9 +21,14 @@ page 85462 "ODS Customers"
     EntityName = 'odsCustomer';
     EntitySetName = 'odsCustomers';
     SourceTable = Customer;
+    // Writable since 1.5.0 the same way the sales documents are: a PATCH with
+    // setFieldValues (JSON keyed by field number) lets the OpenDIMS customer and
+    // order exports fill in what the standard customers API has no property for.
     DelayedInsert = true;
     ODataKeyFields = SystemId;
-    Editable = false;
+    InsertAllowed = false;
+    DeleteAllowed = false;
+    ModifyAllowed = true;
 
     layout
     {
@@ -52,6 +57,8 @@ page 85462 "ODS Customers"
                 field(shippedNotInvoicedLcy; Rec."Shipped Not Invoiced (LCY)") { Caption = 'shippedNotInvoicedLcy', Locked = true; ApplicationArea = All; Editable = false; }
                 field(hasComment; Rec.Comment) { Caption = 'hasComment', Locked = true; ApplicationArea = All; Editable = false; }
                 field(lastModifiedDateTime; Rec.SystemModifiedAt) { Caption = 'lastModifiedDateTime', Locked = true; ApplicationArea = All; Editable = false; }
+                // Write-only: a JSON object keyed by field number, applied on PATCH.
+                field(setFieldValues; SetFieldValuesJson) { Caption = 'setFieldValues', Locked = true; ApplicationArea = All; }
             }
         }
     }
@@ -59,6 +66,7 @@ page 85462 "ODS Customers"
     var
         FieldReflection: Codeunit "ODS Field Reflection";
         FieldValuesJson: Text;
+        SetFieldValuesJson: Text;
 
     trigger OnAfterGetRecord()
     begin
@@ -68,5 +76,21 @@ page 85462 "ODS Customers"
             "Inv. Amounts (LCY)", "Payments (LCY)", "Outstanding Orders (LCY)",
             "Outstanding Invoices (LCY)", "Shipped Not Invoiced (LCY)", Comment);
         FieldValuesJson := FieldReflection.DumpFields(Rec);
+        SetFieldValuesJson := '';
+    end;
+
+    trigger OnModifyRecord(): Boolean
+    var
+        RecRef: RecordRef;
+    begin
+        if SetFieldValuesJson <> '' then begin
+            RecRef.GetTable(Rec);
+            FieldReflection.ApplyFields(RecRef, SetFieldValuesJson);
+            RecRef.SetTable(Rec);
+        end;
+        Rec.Modify(true);
+        // Written above; returning false stops the platform from writing the
+        // pre-validation copy over it.
+        exit(false);
     end;
 }
