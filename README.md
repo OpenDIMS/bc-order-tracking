@@ -104,8 +104,9 @@ top for free.
   Since 1.5.0 the header also takes a **PATCH** (`If-Match: *`), which is how the OpenDIMS order export fills in what the
   standard `salesOrders` API has no property for: `workDescription` (the Work Description BLOB, as text) and
   `setFieldValues` — a JSON object keyed by field number, the same shape `fieldValues` is read in, each value validated
-  through the field's own OnValidate. Only normal fields of the plain data types can be written; the document itself
-  is still created and deleted through the standard API.
+  through the field's own OnValidate. `odsSalesDocumentLines(<id>)` takes the same `setFieldValues` PATCH for a line.
+  Only normal fields of the plain data types can be written; documents and lines are still created and deleted through
+  the standard API.
 - **`odsSalesDocumentLines`** — `id, documentType, documentNumber, lineNumber, fieldValues` plus `reservedQuantity,
   whseOutstandingQty, qtyToAssign, qtyAssigned, substitutionAvailable, postingDate, attachedDocCount,
   lastModifiedDateTime`. `lineNumber` is the Sales Line's own *Line No.*, which is what the standard API calls
@@ -199,7 +200,7 @@ These pages are extensible: another extension can add typed columns with a `page
 ## Permission sets
 
 The extension ships ten assignable permission sets — read-only apart from `OPENDIMS SALES`, which carries Modify on
-the sales header for the PATCH above — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
+the sales header and line for the PATCHes above — `OPENDIMS TRACKING`, `OPENDIMS DISCOUNTS`,
 `OPENDIMS BOM`, `OPENDIMS ITEMS`, `OPENDIMS CUSTOMERS`, `OPENDIMS SALES`, `OPENDIMS VENDORS`, `OPENDIMS PURCHASES`,
 `OPENDIMS LEDGERS` and `OPENDIMS TABLE DATA` — one per feature area. Assign only the set(s) matching the
 channels a tenant actually runs to the API client (the Microsoft Entra app's BC user), so an
@@ -319,5 +320,5 @@ After install, in OpenDIMS' BusinessCentralOrdersImport connector, switch **"Use
   object id. Keep the `app.json` GUID and BC treats a renumbered build as a normal upgrade. The one table it owns
   (`ODS Table Field`) is only ever used as a temporary record and never holds a row in the tenant's database, and
   there are no table extensions, so no customer data rides on an object id.
-- The extension is **read-only** with one exception: a PATCH to `odsSalesDocuments` writes the Work Description and
-  named fields of an open sales header, and only that. Uninstalling it is reversible.
+- The extension is **read-only** with one exception: a PATCH to `odsSalesDocuments` / `odsSalesDocumentLines` writes
+  the Work Description and named fields of an open sales header or line, and only that. Uninstalling it is reversible.

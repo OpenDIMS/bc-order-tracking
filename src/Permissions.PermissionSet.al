@@ -146,14 +146,14 @@ permissionset 85465 "OPENDIMS CUSTOMERS"
 
 permissionset 85466 "OPENDIMS SALES"
 {
-    Caption = 'OpenDIMS: extended sales document fields (read, header write)', Locked = true;
+    Caption = 'OpenDIMS: extended sales document fields (read, write)', Locked = true;
     Assignable = true;
 
-    // Modify on the header is what lets the order export fill in the Work
-    // Description and the fields other extensions put on the document.
+    // Modify on the header and the line is what lets the order export fill in
+    // the Work Description and the fields other extensions put on the document.
     Permissions =
         tabledata "Sales Header" = RM,
-        tabledata "Sales Line" = R,
+        tabledata "Sales Line" = RM,
         tabledata "ODS Table Field" = RIMD,
         page "ODS Sales Documents" = X,
         page "ODS Sales Document Lines" = X,
