@@ -133,11 +133,13 @@ permissionset 85477 "OPENDIMS PURCHASES"
 
 permissionset 85465 "OPENDIMS CUSTOMERS"
 {
-    Caption = 'OpenDIMS: extended customer fields (read)', Locked = true;
+    Caption = 'OpenDIMS: extended customer fields (read, write)', Locked = true;
     Assignable = true;
 
+    // Modify is what lets the customer and order exports fill in the fields the
+    // standard customers API has no property for.
     Permissions =
-        tabledata Customer = R,
+        tabledata Customer = RM,
         tabledata "ODS Table Field" = RIMD,
         page "ODS Customers" = X,
         page "ODS Table Fields" = X,
